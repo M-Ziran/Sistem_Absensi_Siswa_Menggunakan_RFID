@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="id">
+   <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Sesi Absensi — SiAbsen</title>
+      <link rel="stylesheet" href="../css/style.css" />
+      <style>
+         .sesi-aktif-card {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.1));
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+         }
+         .sesi-aktif-title {
+            font-size: 13px;
+            color: var(--green);
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+         }
+         .sesi-mapel-name {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--white);
+            margin-bottom: 4px;
+         }
+         .sesi-meta {
+            font-size: 13px;
+            color: var(--grey-2);
+            margin-bottom: 20px;
+         }
+         .live-clock {
+            font-family: 'Outfit', monospace;
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--green);
+            letter-spacing: 2px;
+         }
+         .absen-live-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+            animation: fadeIn 0.3s ease;
+         }
+         .absen-live-row:last-child {
+            border-bottom: none;
+         }
+         .manual-siswa-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 6px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s;
+         }
+         .manual-siswa-row:hover {
+            background: rgba(59, 130, 246, 0.08);
+         }
+         .manual-siswa-row:last-child {
+            border-bottom: none;
+         }
+         @keyframes fadeIn {
+            from {
+               opacity: 0;
+               transform: translateY(-8px);
+            }
+            to {
+               opacity: 1;
+               transform: none;
+            }
+         }
+         .absen-live-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(59, 130, 246, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--blue-glow);
+            flex-shrink: 0;
+         }
+         .step-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            margin-bottom: 28px;
+         }
+         .step-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--grey-2);
+         }
+         .step-item.active {
+            color: var(--white);
+         }
+         .step-item.done {
+            color: var(--green);
+         }
+         .step-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid var(--grey-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            background: transparent;
+         }
+         .step-item.active .step-num {
+            border-color: var(--blue);
+            background: var(--blue);
+            color: #fff;
+         }
+         .step-item.done .step-num {
+            border-color: var(--green);
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--green);
+         }
+         .step-line {
+            flex: 1;
+            height: 2px;
+            background: rgba(148, 163, 184, 0.2);
+            margin: 0 12px;
+            min-width: 24px;
+         }
+         .step-line.done {
+            background: var(--green);
+         }
+         .mapel-card {
+            background: var(--card-bg);
+            border: 2px solid rgba(148, 163, 184, 0.1);
+            border-radius: 12px;
+            padding: 16px 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+         }
+         .mapel-card:hover {
+            border-color: var(--blue);
+            transform: translateY(-2px);
+         }
+         .mapel-card.selected {
+            border-color: var(--green);
+            background: rgba(16, 185, 129, 0.08);
+         }
+         .kelas-card {
+            background: var(--card-bg);
+            border: 2px solid rgba(148, 163, 184, 0.1);
+            border-radius: 12px;
+            padding: 14px 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+         }
+         .kelas-card:hover {
+            border-color: var(--blue);
+            transform: translateY(-2px);
+         }
+         .kelas-card.selected {
+            border-color: var(--green);
+            background: rgba(16, 185, 129, 0.08);
+         }
+         /* Kelas sudah dipakai — disabled */
+         .kelas-card.used {
+            opacity: 0.45;
+            cursor: not-allowed;
+            pointer-events: none;
+            border-color: rgba(148, 163, 184, 0.08) !important;
+         }
+         .kelas-card.used::after {
+            content: 'Sudah selesai';
+            position: absolute;
+            top: 6px;
+            right: 10px;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--grey-2);
+            background: rgba(148, 163, 184, 0.12);
+            border-radius: 4px;
+            padding: 2px 6px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+         }
+         .kelas-check {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid var(--grey-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 11px;
+         }
+         .kelas-card.selected .kelas-check {
+            border-color: var(--green);
+            background: var(--green);
+            color: #fff;
+         }
+         .warning-box {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-size: 13px;
+            color: var(--grey-2);
+            margin-bottom: 16px;
+         }
+      </style>
+   </head>
+   <body>
+      <div class="mobile-overlay" id="mobileOverlay"></div>
+
+      <!-- Modal Tutup Sesi -->
+      <div class="modal-overlay" id="modalTutup">
+         <div class="modal" style="max-width: 420px">
+            <div class="modal-header">
+               <h3>🔒 Tutup Sesi Absensi</h3>
+               <button class="modal-close" onclick="closeTutup()">✕</button>
+            </div>
+            <p style="color: var(--grey-2); font-size: 14px; margin-bottom: 8px">Siswa yang belum absen akan otomatis ditandai <strong style="color: var(--red)">Alpha</strong>.</p>
+            <div id="tutupInfo" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 13px; color: var(--grey-2)">
+               Menghitung siswa yang belum absen...
+            </div>
+            <div class="modal-footer">
+               <button class="btn btn-secondary" onclick="closeTutup()">Batal</button>
+               <button class="btn btn-danger" onclick="doTutupSesi()" id="btnTutup">🔒 Tutup & Tandai Alpha</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- Modal Absen Manual -->
+      <div class="modal-overlay" id="modalManual">
+         <div class="modal" style="max-width: 460px">
+            <div class="modal-header">
+               <h3>✍️ Absen Manual</h3>
+               <button class="modal-close" onclick="closeManual()">✕</button>
+            </div>
+            <p style="color: var(--grey-2); font-size: 13px; margin-bottom: 12px">
+               Untuk siswa yang tidak membawa kartu. Pilih nama siswa, status akan dihitung otomatis (Hadir / Terlambat) sesuai jam saat ini.
+            </p>
+            <div class="search-wrapper" style="margin-bottom: 12px">
+               <span class="search-icon">🔍</span>
+               <input type="text" class="search-input" id="searchManual" placeholder="Cari nama / NIS..." oninput="filterManualList()">
+            </div>
+            <div id="listManual" style="max-height: 320px; overflow-y: auto">
+               <div class="empty-state" style="padding: 20px">
+                  <p>Memuat daftar siswa...</p>
+               </div>
+            </div>
+            <div class="modal-footer">
+               <button class="btn btn-secondary" onclick="closeManual()">Tutup</button>
+            </div>
+         </div>
+      </div>
+
+      <div class="app-layout">
+         <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+               <div class="sidebar-logo">
+                  <div class="s-icon">🎓</div>
+                  <div>
+                     <div class="s-title">SiAbsen</div>
+                     <div class="s-sub">Sistem Absensi NFC</div>
+                  </div>
+               </div>
+            </div>
+            <nav class="sidebar-nav" id="sidebarNav"></nav>
+            <div class="sidebar-footer" id="sidebarUser"></div>
+         </aside>
+
+         <main class="main-content">
+            <div class="topbar">
+               <div class="flex flex-center gap-2">
+                  <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+                  <div class="topbar-left">
+                     <h2>Sesi Absensi</h2>
+                     <p>Mulai sesi absen untuk mata pelajaran Anda</p>
+                  </div>
+               </div>
+            </div>
+
+            <div class="page-content">
+               <!-- PANEL SESI AKTIF -->
+               <div id="panelSesiAktif" style="display: none">
+                  <div class="sesi-aktif-card">
+                     <div class="sesi-aktif-title">🟢 Sesi Sedang Berlangsung</div>
+                     <div class="sesi-mapel-name" id="sesiMapelNama">—</div>
+                     <div class="sesi-meta" id="sesiMeta">—</div>
+                     <div class="live-clock" id="liveClock">00:00</div>
+                     <div style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap">
+                        <div style="text-align: center; background: rgba(16, 185, 129, 0.1); border-radius: 8px; padding: 12px 20px">
+                           <div style="font-size: 1.5rem; font-weight: 800; color: var(--green)" id="liveHadir">0</div>
+                           <div style="font-size: 12px; color: var(--grey-2)">Hadir</div>
+                        </div>
+                        <div style="text-align: center; background: rgba(245, 158, 11, 0.1); border-radius: 8px; padding: 12px 20px">
+                           <div style="font-size: 1.5rem; font-weight: 800; color: var(--yellow)" id="liveTerlambat">0</div>
+                           <div style="font-size: 12px; color: var(--grey-2)">Terlambat</div>
+                        </div>
+                        <div style="text-align: center; background: rgba(239, 68, 68, 0.1); border-radius: 8px; padding: 12px 20px">
+                           <div style="font-size: 1.5rem; font-weight: 800; color: var(--red)" id="liveBelumAbsen">0</div>
+                           <div style="font-size: 12px; color: var(--grey-2)">Belum Absen</div>
+                        </div>
+                     </div>
+                     <div style="margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap">
+                        <button class="btn btn-primary" onclick="openManual()">✍️ Absen Manual</button>
+                        <button class="btn btn-danger" onclick="openTutup()">🔒 Tutup Sesi</button>
+                     </div>
+                  </div>
+
+                  <div class="card mb-6">
+                     <h3 class="mb-4">⚡ Live Absensi</h3>
+                     <div id="liveFeed">
+                        <div class="empty-state" style="padding: 20px">
+                           <div class="empty-icon">👋</div>
+                           <p>Menunggu siswa tap kartu...</p>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+
+               <!-- PANEL WIZARD -->
+               <div id="panelWizard">
+                  <div class="step-indicator" id="stepIndicator">
+                     <div class="step-item" id="stepItem1">
+                        <div class="step-num">1</div>
+                        <span>Pilih Mapel</span>
+                     </div>
+                     <div class="step-line" id="stepLine1"></div>
+                     <div class="step-item" id="stepItem2">
+                        <div class="step-num">2</div>
+                        <span>Pilih Kelas</span>
+                     </div>
+                  </div>
+
+                  <!-- Step 1 -->
+                  <div id="step1Panel">
+                     <div class="card mb-6">
+                        <h3 class="mb-2">📚 Mata Pelajaran Anda</h3>
+                        <p style="color: var(--grey-2); font-size: 14px; margin-bottom: 16px">Pilih mata pelajaran yang akan diabsen hari ini.</p>
+                        <div id="listMapel" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px">
+                           <div style="color: var(--grey-2); font-size: 14px; padding: 12px">⏳ Memuat daftar mapel...</div>
+                        </div>
+                        <button class="btn btn-primary btn-lg" onclick="goStep2()" id="btnKeStep2" disabled>Selanjutnya: Pilih Kelas →</button>
+                     </div>
+                  </div>
+
+                  <!-- Step 2 -->
+                  <div id="step2Panel" style="display: none">
+                     <div class="card mb-6">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px">
+                           <button class="btn btn-secondary btn-sm" onclick="goStep1()">← Kembali</button>
+                           <div>
+                              <h3 style="margin: 0">🏫 Pilih Kelas</h3>
+                              <p style="color: var(--grey-2); font-size: 13px; margin: 4px 0 0">Mapel: <strong id="selectedMapelLabel" style="color: var(--white)">—</strong></p>
+                           </div>
+                        </div>
+
+                        <div class="warning-box">
+                           ⚠️ <strong style="color: var(--white)">Perhatian:</strong> Hanya siswa dari kelas yang dipilih yang bisa absen. Kelas yang sudah selesai sesi hari ini
+                           <strong style="color: var(--white)">tidak bisa dipilih lagi</strong>.
+                        </div>
+
+                        <div id="listKelas" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-bottom: 20px">
+                           <div style="color: var(--grey-2); font-size: 14px; padding: 12px; grid-column: 1/-1">⏳ Memuat daftar kelas...</div>
+                        </div>
+                        <button class="btn btn-primary btn-lg" onclick="mulaiSesi()" id="btnMulai" disabled>▶️ Mulai Sesi Absensi</button>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </main>
+      </div>
+
+      <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+      <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+      <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+      <script src="../js/firebase-config.js"></script>
+      <script src="../js/utils.js"></script>
+      <script>
+         const user = requireAuth(['guru']);
+         if (!user) throw new Error('Not authenticated');
+         renderSidebar('sesi');
+         initMobileSidebar();
+
+         let allMapelGuru = {};
+         let allSiswa = {};
+         let allKelas = [];
+         let kelasSelesai = new Set(); // kelas yang sudah tutup sesi hari ini (per mapel)
+         let selectedMapelKey = null;
+         let selectedKelas = null;
+         let sesiAktif = null;
+         let liveAbsensi = {};
+         let clockInterval = null;
+         let absensiRef = null;
+
+         const tanggalHari = todayString();
+
+         // ── Load awal ──
+         Promise.all([db.ref('mapel').get(), db.ref('siswa').get(), db.ref('kelas').get(), db.ref('sesi_aktif').get()]).then(([snapMapel, snapSiswa, snapKelas, snapSesi]) => {
+            const allMapel = snapMapel.val() || {};
+            allSiswa = snapSiswa.val() || {};
+
+            allMapelGuru = {};
+            Object.entries(allMapel).forEach(([k, m]) => {
+               if (m.guruKey === user.uid) allMapelGuru[k] = m;
+            });
+
+            const kelasRaw = snapKelas.val() || {};
+            allKelas = Object.values(kelasRaw)
+               .map((v) => v.nama)
+               .filter(Boolean)
+               .sort();
+
+            // Cek sesi aktif milik guru ini
+            if (snapSesi.exists() && snapSesi.val() && snapSesi.val().guruKey === user.uid) {
+               sesiAktif = snapSesi.val();
+               tampilSesiAktif();
+            } else {
+               tampilWizard();
+            }
+         });
+
+         // ── Step indicator ──
+         function setStep(n) {
+            document.getElementById('stepItem1').className = 'step-item ' + (n === 1 ? 'active' : 'done');
+            document.getElementById('stepItem2').className = 'step-item ' + (n === 2 ? 'active' : '');
+            document.getElementById('stepLine1').className = 'step-line' + (n > 1 ? ' done' : '');
+         }
+
+         // ── Wizard ──
+         function tampilWizard() {
+            document.getElementById('panelSesiAktif').style.display = 'none';
+            document.getElementById('panelWizard').style.display = 'block';
+            goStep1();
+         }
+
+         function goStep1() {
+            setStep(1);
+            document.getElementById('step1Panel').style.display = 'block';
+            document.getElementById('step2Panel').style.display = 'none';
+
+            const container = document.getElementById('listMapel');
+            const mapelList = Object.entries(allMapelGuru);
+
+            if (mapelList.length === 0) {
+               container.innerHTML = `
+        <div class="empty-state" style="padding:20px">
+          <div class="empty-icon">📚</div>
+          <h3>Belum ada mata pelajaran</h3>
+          <p>Hubungi admin untuk menugaskan mata pelajaran kepada Anda.</p>
+        </div>`;
+               return;
+            }
+
+            container.innerHTML = mapelList
+               .map(
+                  ([k, m]) => `
+      <div class="mapel-card ${selectedMapelKey === k ? 'selected' : ''}" id="card_${k}" onclick="pilihMapel('${k}')">
+        <div>
+          <div style="font-weight:700;color:var(--white)">${m.nama}</div>
+          <div style="font-size:12px;color:var(--grey-2);margin-top:2px">
+            Jam Mulai: ${m.jamMulai || '—'}
+            ${m.toleransi > 0 ? ` · Toleransi ${m.toleransi} mnt` : ''}
+          </div>
+        </div>
+        <span class="badge badge-blue">${m.kode}</span>
+      </div>
+    `,
+               )
+               .join('');
+
+            document.getElementById('btnKeStep2').disabled = !selectedMapelKey;
+         }
+
+         function pilihMapel(key) {
+            selectedMapelKey = key;
+            selectedKelas = null; // reset pilihan kelas saat ganti mapel
+            document.querySelectorAll('.mapel-card').forEach((el) => el.classList.remove('selected'));
+            document.getElementById(`card_${key}`)?.classList.add('selected');
+            document.getElementById('btnKeStep2').disabled = false;
+         }
+
+         async function goStep2() {
+            if (!selectedMapelKey) return;
+            setStep(2);
+            document.getElementById('step1Panel').style.display = 'none';
+            document.getElementById('step2Panel').style.display = 'block';
+
+            const mapel = allMapelGuru[selectedMapelKey];
+            document.getElementById('selectedMapelLabel').textContent = `${mapel.nama} (${mapel.kode})`;
+
+            // ── Load kelas yang sudah selesai sesi hari ini untuk mapel ini ──
+            // Cek di sesi_arsip/{tanggal}/{mapelKey} — kalau ada berarti kelas itu sudah selesai
+            kelasSelesai = new Set();
+            const snapArsip = await db.ref(`sesi_arsip/${tanggalHari}`).get();
+            if (snapArsip.exists()) {
+               const arsipData = snapArsip.val();
+               // Key arsip berformat "mapelKey_kelas" (bukan mapelKey polos), jadi harus
+               // dicocokkan lewat field sesi.mapelKey yang tersimpan di dalam objeknya.
+               Object.values(arsipData).forEach((sesi) => {
+                  if (sesi.mapelKey === selectedMapelKey && sesi.kelas) {
+                     kelasSelesai.add(sesi.kelas);
+                  }
+               });
+            }
+
+            renderKelasGrid();
+            document.getElementById('btnMulai').disabled = !selectedKelas || kelasSelesai.has(selectedKelas);
+         }
+
+         function renderKelasGrid() {
+            const container = document.getElementById('listKelas');
+            if (allKelas.length === 0) {
+               container.innerHTML = `<p style="color:var(--grey-2);font-size:14px;grid-column:1/-1">Belum ada kelas. Minta admin tambahkan kelas terlebih dahulu.</p>`;
+               return;
+            }
+
+            container.innerHTML = allKelas
+               .map((k) => {
+                  const isUsed = kelasSelesai.has(k);
+                  const isSelected = selectedKelas === k && !isUsed;
+                  return `
+        <div class="kelas-card ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''}"
+             onclick="${isUsed ? '' : `pilihKelas('${k}')`}">
+          <div class="kelas-check">${isSelected ? '✓' : ''}</div>
+          <span style="font-weight:700;color:var(--white)">${k}</span>
+        </div>`;
+               })
+               .join('');
+         }
+
+         function pilihKelas(nama) {
+            if (kelasSelesai.has(nama)) return; // double guard
+            selectedKelas = nama;
+            renderKelasGrid();
+            document.getElementById('btnMulai').disabled = false;
+         }
+
+         // ── Mulai Sesi ──
+         async function mulaiSesi() {
+            if (!selectedMapelKey || !selectedKelas) return;
+            if (kelasSelesai.has(selectedKelas)) {
+               showToast(`Kelas ${selectedKelas} sudah selesai sesi hari ini.`, 'error');
+               return;
+            }
+
+            const mapel = allMapelGuru[selectedMapelKey];
+            const btn = document.getElementById('btnMulai');
+            btn.disabled = true;
+            btn.textContent = 'Memulai...';
+
+            // Cek sesi aktif dari guru lain
+            const snapCek = await db.ref('sesi_aktif').get();
+            if (snapCek.exists() && snapCek.val()) {
+               const existing = snapCek.val();
+               showToast(`Ada sesi aktif dari Guru ${existing.guruNama || 'lain'}. Tunggu hingga sesi selesai.`, 'error');
+               btn.disabled = false;
+               btn.textContent = '▶️ Mulai Sesi Absensi';
+               return;
+            }
+
+            const sesi = {
+               mapelKey: selectedMapelKey,
+               mapelNama: mapel.nama,
+               mapelKode: mapel.kode,
+               kelas: selectedKelas,
+               jamMulai: mapel.jamMulai || '',
+               toleransi: mapel.toleransi || 0,
+               guruKey: user.uid,
+               guruNama: user.name || user.email,
+               mulaiTs: Date.now(),
+               tanggal: tanggalHari,
+               status: 'aktif',
+            };
+
+            await db.ref('sesi_aktif').set(sesi);
+            sesiAktif = sesi;
+            showToast(`Sesi ${mapel.nama} — Kelas ${selectedKelas} dimulai!`, 'success');
+            tampilSesiAktif();
+            btn.disabled = false;
+            btn.textContent = '▶️ Mulai Sesi Absensi';
+         }
+
+         // ── Panel Sesi Aktif ──
+         function tampilSesiAktif() {
+            document.getElementById('panelWizard').style.display = 'none';
+            document.getElementById('panelSesiAktif').style.display = 'block';
+
+            document.getElementById('sesiMapelNama').textContent = sesiAktif.mapelNama + ' — Kelas ' + sesiAktif.kelas;
+            document.getElementById('sesiMeta').textContent = `Jam Mulai: ${sesiAktif.jamMulai || '—'} · Toleransi: ${sesiAktif.toleransi || 0} mnt · Tanggal: ${sesiAktif.tanggal}`;
+
+            if (clockInterval) clearInterval(clockInterval);
+            clockInterval = setInterval(() => {
+               const now = new Date();
+               document.getElementById('liveClock').textContent = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+            }, 1000);
+
+            // Listen absensi — path HARUS sama persis dengan yang dipakai ESP32:
+            // /absensi_sesi/{tanggal}/{mapelKey}/{siswaKey}  (TANPA level kelas).
+            // Isolasi per-kelas dilakukan di client dengan filter record.kelas,
+            // bukan dengan menambah level kelas di path (itu penyebab bug "Tidak Dikenal").
+            const sesiPath = `absensi_sesi/${sesiAktif.tanggal}/${sesiAktif.mapelKey}`;
+            if (absensiRef) absensiRef.off();
+            absensiRef = db.ref(sesiPath);
+            absensiRef.on('value', (snap) => {
+               const raw = snap.val() || {};
+               liveAbsensi = {};
+               Object.entries(raw).forEach(([siswaKey, r]) => {
+                  if (r && r.kelas === sesiAktif.kelas) liveAbsensi[siswaKey] = r;
+               });
+               updateLiveStats();
+               renderLiveFeed();
+            });
+         }
+
+         function updateLiveStats() {
+            const list = Object.values(liveAbsensi);
+            const hadir = list.filter((r) => r.status === 'hadir').length;
+            const terlambat = list.filter((r) => r.status === 'terlambat').length;
+            const totalSiswa = Object.values(allSiswa).filter((s) => s.kelas === sesiAktif.kelas).length;
+            const belum = Math.max(0, totalSiswa - hadir - terlambat);
+
+            document.getElementById('liveHadir').textContent = hadir;
+            document.getElementById('liveTerlambat').textContent = terlambat;
+            document.getElementById('liveBelumAbsen').textContent = belum;
+         }
+
+         function renderLiveFeed() {
+            const feed = document.getElementById('liveFeed');
+            const list = Object.entries(liveAbsensi)
+               .filter(([, r]) => r.status !== 'alpha')
+               .sort((a, b) => b[1].waktu - a[1].waktu)
+               .slice(0, 20);
+
+            if (list.length === 0) {
+               feed.innerHTML = `<div class="empty-state" style="padding:20px">
+        <div class="empty-icon">👋</div><p>Menunggu siswa tap kartu...</p>
+      </div>`;
+               return;
+            }
+
+            feed.innerHTML = list
+               .map(
+                  ([k, r]) => `
+      <div class="absen-live-row">
+        <div class="absen-live-avatar">${(r.nama || '?')[0].toUpperCase()}</div>
+        <div style="flex:1">
+          <div style="font-weight:700;color:var(--white)">${r.nama}</div>
+          <div style="font-size:12px;color:var(--grey-2)">${r.nis || '-'} · ${r.kelas || '-'}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;font-weight:600;color:var(--grey-2)">${formatTime(r.waktu)}</div>
+          <span class="badge badge-${r.status === 'hadir' ? 'hadir' : 'terlambat'}" style="font-size:11px;margin-top:4px">
+            ${r.status === 'hadir' ? '✅ Hadir' : '⚠️ Terlambat'}
+          </span>
+        </div>
+      </div>
+    `,
+               )
+               .join('');
+         }
+
+         // ── Absen Manual (untuk siswa tanpa kartu) ──
+         function openManual() {
+            document.getElementById('searchManual').value = '';
+            renderManualList();
+            document.getElementById('modalManual').classList.add('show');
+         }
+
+         function closeManual() {
+            document.getElementById('modalManual').classList.remove('show');
+         }
+
+         function renderManualList() {
+            const q = (document.getElementById('searchManual').value || '').toLowerCase();
+
+            const belum = Object.entries(allSiswa)
+               .filter(([k, s]) => s.kelas === sesiAktif.kelas && !liveAbsensi[k])
+               .filter(([, s]) => !q || (s.nama || '').toLowerCase().includes(q) || (s.nis || '').toLowerCase().includes(q))
+               .sort((a, b) => (a[1].nama || '').localeCompare(b[1].nama || ''));
+
+            const container = document.getElementById('listManual');
+
+            if (belum.length === 0) {
+               container.innerHTML = `<div class="empty-state" style="padding:20px">
+        <div class="empty-icon">🎉</div>
+        <p>${q ? 'Tidak ada siswa yang cocok.' : 'Semua siswa di kelas ini sudah absen.'}</p>
+      </div>`;
+               return;
+            }
+
+            container.innerHTML = belum
+               .map(
+                  ([siswaKey, s]) => `
+      <div class="manual-siswa-row" onclick="simpanAbsenManual('${siswaKey}')">
+        <div class="absen-live-avatar">${(s.nama || '?')[0].toUpperCase()}</div>
+        <div style="flex:1">
+          <div style="font-weight:700;color:var(--white)">${s.nama || '-'}</div>
+          <div style="font-size:12px;color:var(--grey-2)">${s.nis || '-'} · ${s.kelas || '-'}</div>
+        </div>
+        <span class="badge badge-blue" style="font-size:11px">Tandai Hadir</span>
+      </div>
+    `,
+               )
+               .join('');
+         }
+
+         function filterManualList() {
+            renderManualList();
+         }
+
+         async function simpanAbsenManual(siswaKey) {
+            if (!sesiAktif) return;
+            const siswa = allSiswa[siswaKey];
+            if (!siswa) return;
+
+            const nowSec = Math.floor(Date.now() / 1000);
+            const status = hitungStatus(nowSec, sesiAktif.jamMulai, sesiAktif.toleransi, sesiAktif.tanggal);
+
+            // Path sama persis dengan ESP32: absensi_sesi/{tanggal}/{mapelKey}/{siswaKey}
+            const path = `absensi_sesi/${sesiAktif.tanggal}/${sesiAktif.mapelKey}/${siswaKey}`;
+
+            // Guard singkat — cegah numpuk kalau di-klik dobel/sudah keburu ke-scan kartu
+            const cek = await db.ref(path + '/waktu').get();
+            if (cek.exists()) {
+               showToast(`${siswa.nama} sudah tercatat absen.`, 'error');
+               renderManualList();
+               return;
+            }
+
+            await db.ref(path).set({
+               nama: siswa.nama || 'Tidak Dikenal',
+               nis: siswa.nis || '-',
+               kelas: siswa.kelas || '-',
+               mapelNama: sesiAktif.mapelNama,
+               waktu: nowSec,
+               status,
+               auto: false,
+               manual: true,
+               manualBy: user.name || user.email || user.uid,
+            });
+
+            showToast(`${siswa.nama} ditandai ${status === 'terlambat' ? 'Terlambat' : 'Hadir'} (manual).`, 'success');
+            renderManualList(); // listener absensiRef juga akan update liveFeed otomatis
+         }
+
+         // ── Tutup Sesi ──
+         function openTutup() {
+            const belumAbsen = Object.entries(allSiswa).filter(([k, s]) => s.kelas === sesiAktif.kelas && !liveAbsensi[k]);
+
+            document.getElementById('tutupInfo').innerHTML =
+               `<strong style="color:var(--white)">${belumAbsen.length} siswa</strong> dari kelas ` +
+               `<strong style="color:var(--white)">${sesiAktif.kelas}</strong> belum absen dan akan ` +
+               `ditandai <strong style="color:var(--red)">Alpha</strong>.<br>` +
+               `<span style="font-size:12px;color:var(--grey-2);margin-top:6px;display:block">` +
+               (belumAbsen.length > 0
+                  ? belumAbsen
+                       .slice(0, 5)
+                       .map(([, s]) => s.nama)
+                       .join(', ') + (belumAbsen.length > 5 ? ` dan ${belumAbsen.length - 5} lainnya` : '')
+                  : 'Semua siswa sudah absen! 🎉') +
+               `</span>`;
+            document.getElementById('modalTutup').classList.add('show');
+         }
+
+         function closeTutup() {
+            document.getElementById('modalTutup').classList.remove('show');
+         }
+
+         async function doTutupSesi() {
+            const btn = document.getElementById('btnTutup');
+            btn.disabled = true;
+            btn.textContent = 'Memproses...';
+
+            const tanggal = sesiAktif.tanggal;
+            const mapelKey = sesiAktif.mapelKey;
+            const kelas = sesiAktif.kelas;
+            const tutupTs = Date.now();
+            const updates = {};
+
+            // Tandai Alpha siswa sekelas yang belum absen
+            // Path HARUS sama dengan yang dipakai ESP32: absensi_sesi/{tanggal}/{mapelKey}/{siswaKey}
+            Object.entries(allSiswa)
+               .filter(([k, s]) => s.kelas === kelas && !liveAbsensi[k])
+               .forEach(([siswaKey, siswa]) => {
+                  updates[`absensi_sesi/${tanggal}/${mapelKey}/${siswaKey}`] = {
+                     nama: siswa.nama || 'Tidak Dikenal',
+                     nis: siswa.nis || '-',
+                     kelas: siswa.kelas || '-',
+                     mapelNama: sesiAktif.mapelNama,
+                     waktu: tutupTs,
+                     status: 'alpha',
+                     auto: true,
+                  };
+               });
+
+            // Arsip sesi — key unik: mapelKey_kelas agar satu mapel bisa multi-kelas dalam sehari
+            const arsipKey = `${mapelKey}_${kelas.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            updates[`sesi_arsip/${tanggal}/${arsipKey}`] = {
+               ...sesiAktif,
+               tutupTs,
+               status: 'selesai',
+            };
+
+            // Hapus sesi aktif
+            updates['sesi_aktif'] = null;
+
+            await db.ref().update(updates);
+
+            if (absensiRef) {
+               absensiRef.off();
+               absensiRef = null;
+            }
+            if (clockInterval) {
+               clearInterval(clockInterval);
+               clockInterval = null;
+            }
+
+            showToast('Sesi ditutup. Siswa yang belum absen ditandai Alpha.', 'success');
+            closeTutup();
+            sesiAktif = null;
+            liveAbsensi = {};
+            selectedKelas = null;
+
+            db.ref('siswa')
+               .get()
+               .then((snap) => {
+                  allSiswa = snap.val() || {};
+               });
+            tampilWizard();
+
+            btn.disabled = false;
+            btn.textContent = '🔒 Tutup & Tandai Alpha';
+         }
+      </script>
+   </body>
+</html>

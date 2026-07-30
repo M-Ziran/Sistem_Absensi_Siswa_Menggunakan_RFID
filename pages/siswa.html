@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="id">
+   <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Data Siswa — SiAbsen</title>
+      <link rel="stylesheet" href="../css/style.css" />
+   </head>
+   <body>
+      <div class="mobile-overlay" id="mobileOverlay"></div>
+
+      <!-- Modal Tambah/Edit Siswa -->
+      <div class="modal-overlay" id="modalSiswa">
+         <div class="modal" style="max-width: 500px">
+            <div class="modal-header">
+               <h3 id="modalTitle">➕ Tambah Siswa</h3>
+               <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+
+            <!-- Step 1: Form data siswa -->
+            <div id="stepForm">
+               <div class="form-group">
+                  <label>Nama Lengkap</label>
+                  <input type="text" id="inputNama" class="form-input" placeholder="Nama lengkap siswa" required />
+               </div>
+               <div class="grid-2" style="gap: 12px">
+                  <div class="form-group">
+                     <label>NIS</label>
+                     <input type="text" id="inputNIS" class="form-input" placeholder="Nomor Induk Siswa" />
+                  </div>
+                  <div class="form-group">
+                     <label>Kelas</label>
+                     <select id="inputKelas" class="form-input">
+                       <option value="">— Pilih Kelas —</option>
+                     </select>
+                  </div>
+               </div>
+               <div class="form-group">
+                  <label>Jenis Kelamin</label>
+                  <select id="inputJK" class="form-input">
+                     <option value="L">Laki-laki</option>
+                     <option value="P">Perempuan</option>
+                  </select>
+               </div>
+
+               <!-- UID Kartu NFC -->
+               <div class="form-group">
+                  <label>UID Kartu NFC</label>
+                  <div style="display: flex; gap: 8px">
+                     <input type="text" id="inputUID" class="form-input" placeholder="Tempelkan kartu ke reader / input manual" style="font-family: monospace; text-transform: uppercase; letter-spacing: 1px" />
+                     <button class="btn btn-secondary" onclick="toggleListenUID()" id="btnScanUID" title="Scan kartu dari IoT">📡</button>
+                  </div>
+                  <p id="scanStatus" class="text-sm text-grey mt-4" style="display: none">⏳ Menunggu tap kartu di IoT... (kartu harus di-tap ke reader ESP32)</p>
+               </div>
+
+               <div class="modal-footer">
+                  <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
+                  <button class="btn btn-primary" onclick="saveSiswa()" id="btnSaveSiswa">💾 Simpan</button>
+               </div>
+            </div>
+         </div>
+      </div>
+
+      <!-- Modal Konfirmasi Hapus -->
+      <div class="modal-overlay" id="modalHapus">
+         <div class="modal" style="max-width: 380px">
+            <div class="modal-header">
+               <h3>🗑️ Hapus Siswa</h3>
+               <button class="modal-close" onclick="closeHapus()">✕</button>
+            </div>
+            <p style="color: var(--grey-2); font-size: 14px">Yakin ingin menghapus data <strong id="hapusNama" style="color: var(--white)"></strong>? Seluruh data absensi yang terhubung tetap tersimpan.</p>
+            <div class="modal-footer">
+               <button class="btn btn-secondary" onclick="closeHapus()">Batal</button>
+               <button class="btn btn-danger" onclick="confirmHapus()">🗑️ Hapus</button>
+            </div>
+         </div>
+      </div>
+
+      <div class="app-layout">
+         <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+               <div class="sidebar-logo">
+                  <div class="s-icon">🎓</div>
+                  <div>
+                     <div class="s-title">SiAbsen</div>
+                     <div class="s-sub">Sistem Absensi NFC</div>
+                  </div>
+               </div>
+            </div>
+            <nav class="sidebar-nav" id="sidebarNav"></nav>
+            <div class="sidebar-footer" id="sidebarUser"></div>
+         </aside>
+
+         <main class="main-content">
+            <div class="topbar">
+               <div class="flex flex-center gap-2">
+                  <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+                  <div class="topbar-left">
+                     <h2>Data Siswa</h2>
+                     <p>Kelola data siswa dan kartu NFC</p>
+                  </div>
+               </div>
+               <button class="btn btn-primary" onclick="openModal()">➕ Tambah Siswa</button>
+            </div>
+
+            <div class="page-content">
+               <div class="card">
+                  <div class="filter-bar mb-4">
+                     <div class="search-wrapper" style="flex: 2">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" class="search-input" id="searchInput" placeholder="Cari nama, NIS, atau kelas..." oninput="applyFilter()" />
+                     </div>
+                     <select id="filterKelas" class="form-input" style="flex: 1; min-width: 130px; padding: 10px 12px" onchange="applyFilter()">
+                        <option value="">Semua Kelas</option>
+                     </select>
+                     <div class="export-group">
+                        <button class="btn btn-success btn-sm" onclick="exportExcel()">📥 Excel</button>
+                     </div>
+                  </div>
+
+                  <div class="table-wrapper">
+                     <table>
+                        <thead>
+                           <tr>
+                              <th>#</th>
+                              <th>Nama Siswa</th>
+                              <th>NIS</th>
+                              <th>Kelas</th>
+                              <th>JK</th>
+                              <th>UID Kartu</th>
+                              <th>Status Kartu</th>
+                              <th>Aksi</th>
+                           </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                           <tr>
+                              <td colspan="8">
+                                 <div class="page-loader"><div class="spinner"></div></div>
+                              </td>
+                           </tr>
+                        </tbody>
+                     </table>
+                  </div>
+                  <div id="info" class="text-sm text-grey mt-4"></div>
+               </div>
+            </div>
+         </main>
+      </div>
+
+      <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+      <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+      <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+      <script src="../js/firebase-config.js"></script>
+      <script src="../js/utils.js"></script>
+      <script>
+         ['https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js'].forEach((src) => {
+            const s = document.createElement('script');
+            s.src = src;
+            document.head.appendChild(s);
+         });
+
+         const user = requireAuth(['admin', 'guru']);
+         if (!user) throw new Error('Not authenticated');
+
+         renderSidebar('siswa');
+         initMobileSidebar();
+
+         let allSiswa = [];
+         let filteredSiswa = [];
+         let editKey = null;
+         let hapusKey = null;
+         let listenRef = null;
+
+         // Realtime listener siswa
+         // Load kelas dari node /kelas untuk populate dropdown
+         db.ref('kelas').get().then(snapKelas => {
+            const kelasData = snapKelas.val() || {};
+            const selInput = document.getElementById('inputKelas');
+            const selFilter = document.getElementById('filterKelas');
+            const kelasList = Object.values(kelasData).map(v => v.nama).filter(Boolean).sort();
+            kelasList.forEach(nama => {
+               [selInput, selFilter].forEach(sel => {
+                  const opt = document.createElement('option');
+                  opt.value = nama; opt.textContent = nama;
+                  sel.appendChild(opt);
+               });
+            });
+         });
+
+         db.ref('siswa').on('value', (snap) => {
+            const data = snap.val() || {};
+            allSiswa = Object.entries(data).map(([key, val]) => ({ key, ...val }));
+            allSiswa.sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
+            applyFilter();
+         });
+
+         // Filter kelas diisi dari node /kelas (bukan dari data siswa)
+         // sehingga kelas yang belum ada siswanya tetap tampil di dropdown
+
+         function applyFilter() {
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            const kelas = document.getElementById('filterKelas').value;
+
+            filteredSiswa = allSiswa.filter((s) => {
+               const matchQ = !q || (s.nama || '').toLowerCase().includes(q) || (s.nis || '').toLowerCase().includes(q) || (s.kelas || '').toLowerCase().includes(q);
+               const matchK = !kelas || s.kelas === kelas;
+               return matchQ && matchK;
+            });
+
+            renderTable();
+            document.getElementById('info').textContent = `Menampilkan ${filteredSiswa.length} dari ${allSiswa.length} siswa`;
+         }
+
+         function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            if (filteredSiswa.length === 0) {
+               tbody.innerHTML = `<tr><td colspan="8">
+        <div class="empty-state"><div class="empty-icon">🎓</div>
+        <h3>Belum ada siswa</h3><p>Klik "Tambah Siswa" untuk mendaftarkan siswa baru.</p></div>
+      </td></tr>`;
+               return;
+            }
+
+            tbody.innerHTML = filteredSiswa
+               .map(
+                  (s, i) => `
+      <tr>
+        <td style="color:var(--grey-2)">${i + 1}</td>
+        <td class="fw-600">${s.nama}</td>
+        <td>${s.nis || '-'}</td>
+        <td><span class="badge badge-grey">${s.kelas || '-'}</span></td>
+        <td>${s.jk === 'L' ? '👦' : '👧'} ${s.jk || '-'}</td>
+        <td style="font-family:monospace; font-size:12px; color:var(--grey-2)">${s.uid || '-'}</td>
+        <td>
+          ${s.uid ? `<span class="badge badge-hadir">✅ Terdaftar</span>` : `<span class="badge badge-alpha">⚠️ Belum Ada Kartu</span>`}
+        </td>
+        <td>
+          <div class="flex gap-2">
+            <button class="btn btn-secondary btn-sm" onclick="openModal('${s.key}')">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="openHapus('${s.key}', '${s.nama.replace(/'/g, "\\'")}')">🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `,
+               )
+               .join('');
+         }
+
+         // Modal functions
+         function openModal(key = null) {
+            editKey = key;
+            document.getElementById('modalTitle').textContent = key ? '✏️ Edit Siswa' : '➕ Tambah Siswa';
+
+            if (key) {
+               const s = allSiswa.find((x) => x.key === key);
+               if (s) {
+                  document.getElementById('inputNama').value = s.nama || '';
+                  document.getElementById('inputNIS').value = s.nis || '';
+                  document.getElementById('inputKelas').value = s.kelas || '';
+                  document.getElementById('inputJK').value = s.jk || 'L';
+                  document.getElementById('inputUID').value = s.uid || '';
+               }
+            } else {
+               document.getElementById('inputNama').value = '';
+               document.getElementById('inputNIS').value = '';
+               document.getElementById('inputKelas').value = '';
+               document.getElementById('inputJK').value = 'L';
+               document.getElementById('inputUID').value = '';
+            }
+
+            stopListenUID();
+            document.getElementById('scanStatus').style.display = 'none';
+            document.getElementById('modalSiswa').classList.add('show');
+         }
+
+         function closeModal() {
+            stopListenUID();
+            document.getElementById('modalSiswa').classList.remove('show');
+            editKey = null;
+         }
+
+         async function saveSiswa() {
+            const nama = document.getElementById('inputNama').value.trim();
+            const nis = document.getElementById('inputNIS').value.trim();
+            const kelas = document.getElementById('inputKelas').value.trim();
+            const jk = document.getElementById('inputJK').value;
+            const uid = document.getElementById('inputUID').value.trim().toUpperCase();
+
+            if (!nama) return showToast('Nama siswa wajib diisi.', 'error');
+
+            // Cek duplikat UID (jika diisi)
+            if (uid) {
+               const existing = allSiswa.find((s) => s.uid === uid && s.key !== editKey);
+               if (existing) return showToast(`UID kartu ini sudah terdaftar untuk: ${existing.nama}`, 'error');
+            }
+
+            const btn = document.getElementById('btnSaveSiswa');
+            btn.disabled = true;
+            btn.textContent = 'Menyimpan...';
+
+            const payload = { nama, nis, kelas, jk, uid, updatedAt: Date.now() };
+
+            try {
+               if (editKey) {
+                  await db.ref(`siswa/${editKey}`).update(payload);
+                  showToast('Data siswa berhasil diperbarui!', 'success');
+               } else {
+                  payload.createdAt = Date.now();
+                  await db.ref('siswa').push(payload);
+                  showToast('Siswa berhasil didaftarkan!', 'success');
+               }
+               closeModal();
+            } catch (err) {
+               showToast('Gagal menyimpan: ' + err.message, 'error');
+            } finally {
+               btn.disabled = false;
+               btn.textContent = '💾 Simpan';
+            }
+         }
+
+         // Scan UID dari IoT (listen ke node last_scan)
+         function toggleListenUID() {
+            const btn = document.getElementById('btnScanUID');
+            if (listenRef) {
+               stopListenUID();
+               btn.textContent = '📡';
+               document.getElementById('scanStatus').style.display = 'none';
+            } else {
+               startListenUID();
+               btn.textContent = '⏹️';
+               document.getElementById('scanStatus').style.display = 'block';
+            }
+         }
+
+         function startListenUID() {
+            // Simpan UID yang sudah ada sebelum tombol diklik
+            let uidSebelumnya = null;
+
+            // Baca UID saat ini dulu
+            db.ref('last_scan/uid')
+               .get()
+               .then((snap) => {
+                  uidSebelumnya = snap.val() || null;
+                  console.log('UID sebelumnya:', uidSebelumnya);
+               });
+
+            listenRef = db.ref('last_scan');
+            listenRef.on('value', (snap) => {
+               const data = snap.val();
+               if (!data || !data.uid) return;
+
+               const uidBaru = data.uid.toUpperCase();
+
+               // Jika UID sama dengan sebelumnya, abaikan (belum ada scan baru)
+               if (uidBaru === (uidSebelumnya || '').toUpperCase()) return;
+
+               // Ada UID baru!
+               const uidField = document.getElementById('inputUID');
+               uidField.value = uidBaru;
+               showToast('✅ UID kartu berhasil terbaca: ' + uidBaru, 'success');
+               stopListenUID();
+               document.getElementById('btnScanUID').textContent = '📡';
+               document.getElementById('scanStatus').style.display = 'none';
+            });
+         }
+
+         function stopListenUID() {
+            if (listenRef) {
+               listenRef.off();
+               listenRef = null;
+            }
+         }
+
+         // Hapus
+         function openHapus(key, nama) {
+            hapusKey = key;
+            document.getElementById('hapusNama').textContent = nama;
+            document.getElementById('modalHapus').classList.add('show');
+         }
+
+         function closeHapus() {
+            document.getElementById('modalHapus').classList.remove('show');
+            hapusKey = null;
+         }
+
+         async function confirmHapus() {
+            if (!hapusKey) return;
+            try {
+               await db.ref(`siswa/${hapusKey}`).remove();
+               showToast('Siswa berhasil dihapus.', 'success');
+               closeHapus();
+            } catch (err) {
+               showToast('Gagal menghapus: ' + err.message, 'error');
+            }
+         }
+
+         // Export
+         function exportExcel() {
+            if (filteredSiswa.length === 0) return showToast('Tidak ada data.', 'error');
+            const headers = ['No', 'Nama', 'NIS', 'Kelas', 'JK', 'UID Kartu', 'Status Kartu'];
+            const rows = filteredSiswa.map((s, i) => [i + 1, s.nama, s.nis || '-', s.kelas || '-', s.jk || '-', s.uid || '-', s.uid ? 'Terdaftar' : 'Belum Ada Kartu']);
+            exportToExcel(rows, headers, 'Data_Siswa');
+         }
+      </script>
+   </body>
+</html>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Guru — SiAbsen</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="s-icon">🎓</div>
+        <div><div class="s-title">SiAbsen</div><div class="s-sub">Portal Guru</div></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <div class="sidebar-footer" id="sidebarUser"></div>
+  </aside>
+
+  <main class="main-content">
+    <div class="topbar">
+      <div class="flex flex-center gap-2">
+        <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+        <div class="topbar-left">
+          <h2 id="greeting">Selamat datang!</h2>
+          <p id="topbarDate"></p>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="flex flex-center gap-2">
+          <div class="live-dot"></div>
+          <span style="font-size:12px; color:var(--grey-2)">Live</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <!-- Stats -->
+      <div class="stats-grid mb-6">
+        <div class="stat-card" style="--accent:var(--blue); --icon-bg:rgba(59,130,246,0.15)">
+          <div class="stat-icon">🎓</div>
+          <div><div class="stat-value" id="statSiswa">—</div><div class="stat-label">Total Siswa</div></div>
+        </div>
+        <div class="stat-card" style="--accent:var(--green); --icon-bg:rgba(16,185,129,0.15)">
+          <div class="stat-icon">✅</div>
+          <div><div class="stat-value" id="statHadir">—</div><div class="stat-label">Hadir Hari Ini</div></div>
+        </div>
+        <div class="stat-card" style="--accent:var(--red); --icon-bg:rgba(239,68,68,0.15)">
+          <div class="stat-icon">❌</div>
+          <div><div class="stat-value" id="statAlpha">—</div><div class="stat-label">Alpha Hari Ini</div></div>
+        </div>
+        <div class="stat-card" style="--accent:var(--cyan); --icon-bg:rgba(6,182,212,0.15)">
+          <div class="stat-icon">📊</div>
+          <div><div class="stat-value" id="statPersen">—</div><div class="stat-label">% Kehadiran</div></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Absensi hari ini -->
+        <div class="card">
+          <div class="flex flex-center gap-2 mb-4" style="justify-content:space-between; flex-wrap:wrap; gap:8px">
+            <h3>📋 Absensi Hari Ini</h3>
+            <div class="export-group">
+              <button class="btn btn-success btn-sm" onclick="exportHariIniExcel()">📥 Excel</button>
+              <button class="btn btn-danger btn-sm" onclick="exportHariIniPDF()">📄 PDF</button>
+            </div>
+          </div>
+
+          <div class="search-wrapper mb-4">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" id="searchInput"
+              placeholder="Cari nama siswa..." oninput="filterAbsensi()">
+          </div>
+
+          <div class="table-wrapper" style="max-height:400px; overflow-y:auto">
+            <table>
+              <thead>
+                <tr><th>Nama</th><th>Kelas</th><th>Jam</th><th>Status</th></tr>
+              </thead>
+              <tbody id="tableAbsensi">
+                <tr><td colspan="4"><div class="page-loader"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Siswa belum hadir -->
+        <div class="card">
+          <div class="flex flex-center gap-2 mb-4" style="justify-content:space-between">
+            <h3>⚠️ Belum Hadir</h3>
+            <span class="badge badge-alpha" id="countAlpha">0 siswa</span>
+          </div>
+          <div class="table-wrapper" style="max-height:430px; overflow-y:auto">
+            <table>
+              <thead>
+                <tr><th>Nama</th><th>NIS</th><th>Kelas</th></tr>
+              </thead>
+              <tbody id="tableAlpha">
+                <tr><td colspan="3"><div class="page-loader"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="../js/firebase-config.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+  ['https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js',
+   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+   'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js'
+  ].forEach(src => { const s = document.createElement('script'); s.src = src; document.head.appendChild(s); });
+
+  const user = requireAuth(['guru']);
+  if (!user) throw new Error('Not authenticated');
+
+  document.getElementById('greeting').textContent = `Halo, ${user.name || 'Guru'}! 👋`;
+  document.getElementById('topbarDate').textContent =
+    new Date().toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  renderSidebar('dashboard');
+  initMobileSidebar();
+
+  const today = todayString();
+  let allSiswa = {};
+  let absensiHariIni = [];
+  let displayAbsensi = [];
+
+  db.ref('siswa').on('value', snap => {
+    allSiswa = snap.val() || {};
+    document.getElementById('statSiswa').textContent = Object.keys(allSiswa).length;
+    updateAlpha();
+  });
+
+  db.ref(`absensi/${today}`).on('value', snap => {
+    const data = snap.val() || {};
+    absensiHariIni = Object.entries(data).map(([uid, rec]) => {
+      const siswa = allSiswa[uid] || {};
+      return {
+        uid,
+        nama:   siswa.nama  || rec.nama || 'Tidak Dikenal',
+        nis:    siswa.nis   || '-',
+        kelas:  siswa.kelas || '-',
+        waktu:  rec.waktu,
+        status: rec.status  || 'hadir'
+      };
+    });
+    absensiHariIni.sort((a, b) => b.waktu - a.waktu);
+
+    const hadir = absensiHariIni.filter(s => s.status === 'hadir').length;
+    const total = Object.keys(allSiswa).length;
+    const alpha = Math.max(0, total - hadir);
+
+    document.getElementById('statHadir').textContent  = hadir;
+    document.getElementById('statAlpha').textContent  = alpha;
+    document.getElementById('statPersen').textContent = total > 0
+      ? Math.round((hadir / total) * 100) + '%' : '0%';
+
+    filterAbsensi();
+    updateAlpha();
+  });
+
+  function filterAbsensi() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    displayAbsensi = q
+      ? absensiHariIni.filter(s => s.nama.toLowerCase().includes(q))
+      : absensiHariIni;
+    renderAbsensi();
+  }
+
+  function renderAbsensi() {
+    const tbody = document.getElementById('tableAbsensi');
+    if (displayAbsensi.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4">
+        <div class="empty-state" style="padding:30px">
+          <div class="empty-icon">📋</div><p>Belum ada absensi hari ini.</p>
+        </div>
+      </td></tr>`;
+      return;
+    }
+    tbody.innerHTML = displayAbsensi.map(s => `
+      <tr>
+        <td class="fw-600">${s.nama}</td>
+        <td><span class="badge badge-grey">${s.kelas}</span></td>
+        <td style="font-size:12px">${formatTime(s.waktu)}</td>
+        <td><span class="badge badge-hadir">✅</span></td>
+      </tr>
+    `).join('');
+  }
+
+  function updateAlpha() {
+    const hadirUIDs = new Set(absensiHariIni.map(s => s.uid));
+    const alphaList = Object.entries(allSiswa)
+      .filter(([uid]) => !hadirUIDs.has(uid))
+      .map(([uid, s]) => ({ uid, ...s }))
+      .sort((a, b) => (a.nama||'').localeCompare(b.nama||''));
+
+    document.getElementById('countAlpha').textContent = `${alphaList.length} siswa`;
+
+    const tbody = document.getElementById('tableAlpha');
+    if (alphaList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3">
+        <div class="empty-state" style="padding:30px">
+          <div class="empty-icon">🎉</div><h3>Semua hadir!</h3>
+        </div>
+      </td></tr>`;
+      return;
+    }
+    tbody.innerHTML = alphaList.map(s => `
+      <tr>
+        <td class="fw-600">${s.nama || '-'}</td>
+        <td style="font-size:12px">${s.nis || '-'}</td>
+        <td><span class="badge badge-grey">${s.kelas || '-'}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  function exportHariIniExcel() {
+    if (absensiHariIni.length === 0) return showToast('Tidak ada data.', 'error');
+    const headers = ['Nama','NIS','Kelas','Jam Masuk','Status'];
+    const rows = absensiHariIni.map(s =>
+      [s.nama, s.nis, s.kelas, formatTime(s.waktu), 'Hadir']);
+    exportToExcel(rows, headers, `Absensi_${today}`);
+  }
+
+  function exportHariIniPDF() {
+    if (absensiHariIni.length === 0) return showToast('Tidak ada data.', 'error');
+    const headers = ['Nama','NIS','Kelas','Jam Masuk','Status'];
+    const rows = absensiHariIni.map(s =>
+      [s.nama, s.nis, s.kelas, formatTime(s.waktu), 'Hadir']);
+    exportToPDF(`Absensi Hari Ini — ${formatDate(today)}`, headers, rows, `Absensi_${today}`);
+  }
+</script>
+</body>
+</html>

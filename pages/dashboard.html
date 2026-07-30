@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin — SiAbsen</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<div class="app-layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="s-icon">🎓</div>
+        <div>
+          <div class="s-title">SiAbsen</div>
+          <div class="s-sub">Sistem Absensi NFC</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <div class="sidebar-footer" id="sidebarUser"></div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="topbar">
+      <div class="flex flex-center gap-2">
+        <button class="hamburger" id="hamburger">
+          <span></span><span></span><span></span>
+        </button>
+        <div class="topbar-left">
+          <h2>Dashboard</h2>
+          <p id="topbarDate"></p>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="flex flex-center gap-2">
+          <div class="live-dot"></div>
+          <span style="font-size:12px; color:var(--grey-2)">Live</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <!-- STATS -->
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card" style="--accent:var(--blue); --icon-bg:rgba(59,130,246,0.15)">
+          <div class="stat-icon">🎓</div>
+          <div>
+            <div class="stat-value" id="statTotalSiswa">—</div>
+            <div class="stat-label">Total Siswa</div>
+          </div>
+        </div>
+        <div class="stat-card" style="--accent:var(--green); --icon-bg:rgba(16,185,129,0.15)">
+          <div class="stat-icon">✅</div>
+          <div>
+            <div class="stat-value" id="statHadir">—</div>
+            <div class="stat-label">Hadir Hari Ini</div>
+          </div>
+        </div>
+        <div class="stat-card" style="--accent:var(--red); --icon-bg:rgba(239,68,68,0.15)">
+          <div class="stat-icon">❌</div>
+          <div>
+            <div class="stat-value" id="statAlpha">—</div>
+            <div class="stat-label">Alpha Hari Ini</div>
+          </div>
+        </div>
+        <div class="stat-card" style="--accent:var(--cyan); --icon-bg:rgba(6,182,212,0.15)">
+          <div class="stat-icon">👤</div>
+          <div>
+            <div class="stat-value" id="statGuru">—</div>
+            <div class="stat-label">Total Guru</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2 mb-6">
+        <!-- Grafik 7 Hari -->
+        <div class="card">
+          <div class="flex flex-center gap-2 mb-4" style="justify-content:space-between">
+            <h3>📈 Tren Kehadiran (7 Hari)</h3>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartTren"></canvas>
+          </div>
+        </div>
+
+        <!-- Realtime Feed -->
+        <div class="card">
+          <div class="flex flex-center gap-2 mb-4" style="justify-content:space-between">
+            <h3>⚡ Absensi Terkini</h3>
+            <div class="flex flex-center gap-2">
+              <div class="live-dot"></div>
+              <span class="text-sm text-grey">Real-time</span>
+            </div>
+          </div>
+          <div class="realtime-feed" id="realtimeFeed">
+            <div class="empty-state" style="padding:30px">
+              <div class="empty-icon">📡</div>
+              <p>Menunggu data absensi...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table Absensi Hari Ini -->
+      <div class="card">
+        <div class="flex flex-center gap-2 mb-4" style="justify-content:space-between; flex-wrap:wrap; gap:12px">
+          <h3>📋 Absensi Hari Ini</h3>
+          <div class="export-group">
+            <button class="btn btn-success btn-sm" onclick="exportHariIniExcel()">📥 Excel</button>
+            <button class="btn btn-danger btn-sm" onclick="exportHariIniPDF()">📄 PDF</button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nama Siswa</th>
+                <th>NIS</th>
+                <th>Kelas</th>
+                <th>Jam Masuk</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tableAbsensiHariIni">
+              <tr><td colspan="6" style="text-align:center;padding:40px">
+                <div class="spinner" style="margin:0 auto"></div>
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="../js/firebase-config.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+  // CDN SheetJS + jsPDF
+  const sheetScript = document.createElement('script');
+  sheetScript.src = 'https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js';
+  document.head.appendChild(sheetScript);
+
+  const jspdfScript = document.createElement('script');
+  jspdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+  document.head.appendChild(jspdfScript);
+
+  const autoTableScript = document.createElement('script');
+  autoTableScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js';
+  document.head.appendChild(autoTableScript);
+
+  const user = requireAuth(['admin']);
+  if (!user) throw new Error('Not authenticated');
+
+  document.getElementById('topbarDate').textContent =
+    new Date().toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  renderSidebar('dashboard');
+  initMobileSidebar();
+
+  const today = todayString();
+  let allSiswa = {};
+  let absensiHariIni = [];
+  let trendChart = null;
+
+  // Load semua siswa
+  db.ref('siswa').on('value', snap => {
+    allSiswa = snap.val() || {};
+    document.getElementById('statTotalSiswa').textContent = Object.keys(allSiswa).length;
+  });
+
+  // Load jumlah guru
+  db.ref('users').orderByChild('role').equalTo('guru').on('value', snap => {
+    const data = snap.val() || {};
+    document.getElementById('statGuru').textContent = Object.keys(data).length;
+  });
+
+  // Realtime absensi hari ini
+  db.ref(`absensi/${today}`).on('value', snap => {
+    const data = snap.val() || {};
+    absensiHariIni = [];
+
+    Object.entries(data).forEach(([uid, record]) => {
+      const siswa = allSiswa[uid] || {};
+      absensiHariIni.push({
+        uid,
+        nama:  siswa.nama  || record.nama || 'Tidak Dikenal',
+        nis:   siswa.nis   || '-',
+        kelas: siswa.kelas || '-',
+        waktu: record.waktu,
+        status: record.status || 'hadir'
+      });
+    });
+
+    // Sort by waktu desc
+    absensiHariIni.sort((a, b) => b.waktu - a.waktu);
+
+    const hadir = absensiHariIni.filter(s => s.status === 'hadir').length;
+    const totalSiswa = Object.keys(allSiswa).length;
+    document.getElementById('statHadir').textContent = hadir;
+    document.getElementById('statAlpha').textContent = Math.max(0, totalSiswa - hadir);
+
+    renderTableHariIni();
+    renderRealtimeFeed();
+  });
+
+  function renderTableHariIni() {
+    const tbody = document.getElementById('tableAbsensiHariIni');
+    if (absensiHariIni.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6">
+        <div class="empty-state"><div class="empty-icon">📋</div><p>Belum ada absensi hari ini.</p></div>
+      </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = absensiHariIni.map((s, i) => `
+      <tr>
+        <td style="color:var(--grey-2)">${i + 1}</td>
+        <td class="fw-600">${s.nama}</td>
+        <td>${s.nis}</td>
+        <td><span class="badge badge-grey">${s.kelas}</span></td>
+        <td>${formatTime(s.waktu)}</td>
+        <td><span class="badge badge-${s.status === 'hadir' ? 'hadir' : 'alpha'}">
+          ${s.status === 'hadir' ? '✅ Hadir' : '❌ Alpha'}
+        </span></td>
+      </tr>
+    `).join('');
+  }
+
+  function renderRealtimeFeed() {
+    const feed = document.getElementById('realtimeFeed');
+    const recent = absensiHariIni.slice(0, 8);
+
+    if (recent.length === 0) {
+      feed.innerHTML = `<div class="empty-state" style="padding:30px">
+        <div class="empty-icon">📡</div><p>Menunggu data absensi...</p>
+      </div>`;
+      return;
+    }
+
+    feed.innerHTML = recent.map(s => `
+      <div class="feed-item">
+        <div class="feed-avatar">${s.nama[0]}</div>
+        <div style="flex:1">
+          <div class="feed-name">${s.nama}</div>
+          <div class="feed-time">${s.kelas} • ${formatTime(s.waktu)}</div>
+        </div>
+        <span class="badge badge-hadir">✅ Hadir</span>
+      </div>
+    `).join('');
+  }
+
+  // Tren 7 hari
+  async function loadTrendChart() {
+    const labels = [];
+    const dataPts = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      labels.push(d.toLocaleDateString('id-ID', { weekday:'short', day:'numeric' }));
+
+      const snap = await db.ref(`absensi/${key}`).get();
+      dataPts.push(snap.exists() ? Object.keys(snap.val()).length : 0);
+    }
+
+    const ctx = document.getElementById('chartTren').getContext('2d');
+    if (trendChart) trendChart.destroy();
+
+    trendChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Jumlah Hadir',
+          data: dataPts,
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.1)',
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#3b82f6',
+          pointRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', fontSize: 11 } },
+          y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', stepSize: 1 }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  loadTrendChart();
+
+  // Export Excel hari ini
+  function exportHariIniExcel() {
+    if (absensiHariIni.length === 0) return showToast('Tidak ada data untuk diekspor.', 'error');
+    const headers = ['No', 'Nama Siswa', 'NIS', 'Kelas', 'Jam Masuk', 'Status'];
+    const rows = absensiHariIni.map((s, i) =>
+      [i+1, s.nama, s.nis, s.kelas, formatTime(s.waktu), s.status === 'hadir' ? 'Hadir' : 'Alpha']
+    );
+    exportToExcel(rows, headers, `Absensi_${today}`);
+  }
+
+  // Export PDF hari ini
+  function exportHariIniPDF() {
+    if (absensiHariIni.length === 0) return showToast('Tidak ada data untuk diekspor.', 'error');
+    const headers = ['No', 'Nama Siswa', 'NIS', 'Kelas', 'Jam Masuk', 'Status'];
+    const rows = absensiHariIni.map((s, i) =>
+      [i+1, s.nama, s.nis, s.kelas, formatTime(s.waktu), s.status === 'hadir' ? 'Hadir' : 'Alpha']
+    );
+    exportToPDF(`Rekap Absensi — ${formatDate(today)}`, headers, rows, `Absensi_${today}`);
+  }
+</script>
+</body>
+</html>

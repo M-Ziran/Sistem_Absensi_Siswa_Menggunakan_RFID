@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rekap Absensi — SiAbsen</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="s-icon">🎓</div>
+        <div><div class="s-title">SiAbsen</div><div class="s-sub">Sistem Absensi NFC</div></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <div class="sidebar-footer" id="sidebarUser"></div>
+  </aside>
+
+  <main class="main-content">
+    <div class="topbar">
+      <div class="flex flex-center gap-2">
+        <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+        <div class="topbar-left">
+          <h2>Rekap Absensi</h2>
+          <p>Filter dan lihat rekap kehadiran siswa per mata pelajaran</p>
+        </div>
+      </div>
+      <div class="topbar-right export-group">
+        <button class="btn btn-success btn-sm" onclick="doExportExcel()">📥 Export Excel</button>
+        <button class="btn btn-danger btn-sm" onclick="doExportPDF()">📄 Export PDF</button>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <!-- FILTER -->
+      <div class="card mb-6">
+        <h3 class="mb-4">🔍 Filter Data</h3>
+        <div class="filter-bar" style="flex-wrap:wrap;gap:12px">
+          <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <label style="margin-bottom:6px">Tanggal Awal</label>
+            <input type="date" id="filterStart" class="form-input" style="padding:10px 12px">
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <label style="margin-bottom:6px">Tanggal Akhir</label>
+            <input type="date" id="filterEnd" class="form-input" style="padding:10px 12px">
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:160px">
+            <label style="margin-bottom:6px">Mata Pelajaran</label>
+            <select id="filterMapel" class="form-input" style="padding:10px 12px">
+              <option value="">Semua Mapel</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <label style="margin-bottom:6px">Kelas</label>
+            <select id="filterKelas" class="form-input" style="padding:10px 12px">
+              <option value="">Semua Kelas</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:160px">
+            <label style="margin-bottom:6px">Status</label>
+            <select id="filterStatus" class="form-input" style="padding:10px 12px">
+              <option value="">Semua Status</option>
+              <option value="hadir">✅ Hadir</option>
+              <option value="terlambat">⚠️ Terlambat</option>
+              <option value="alpha">❌ Alpha</option>
+            </select>
+          </div>
+          <div style="align-self:flex-end">
+            <button class="btn btn-primary" onclick="loadAbsensi()" style="height:43px">🔍 Tampilkan</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUMMARY -->
+      <div class="stats-grid mb-6" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat-card" style="--accent:var(--blue)">
+          <div class="stat-icon" style="background:rgba(59,130,246,0.15)">📋</div>
+          <div><div class="stat-value" id="sumTotal">0</div><div class="stat-label">Total Record</div></div>
+        </div>
+        <div class="stat-card" style="--accent:var(--green)">
+          <div class="stat-icon" style="background:rgba(16,185,129,0.15)">✅</div>
+          <div><div class="stat-value" id="sumHadir">0</div><div class="stat-label">Hadir</div></div>
+        </div>
+        <div class="stat-card" style="--accent:var(--yellow)">
+          <div class="stat-icon" style="background:rgba(245,158,11,0.15)">⚠️</div>
+          <div><div class="stat-value" id="sumTerlambat">0</div><div class="stat-label">Terlambat</div></div>
+        </div>
+        <div class="stat-card" style="--accent:var(--red)">
+          <div class="stat-icon" style="background:rgba(239,68,68,0.15)">❌</div>
+          <div><div class="stat-value" id="sumAlpha">0</div><div class="stat-label">Alpha</div></div>
+        </div>
+      </div>
+
+      <!-- TABLE -->
+      <div class="card">
+        <div class="flex flex-center gap-2 mb-4" style="justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <h3>📋 Data Absensi</h3>
+          <div class="search-wrapper" style="min-width:200px">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" id="searchInput" placeholder="Cari nama / NIS..." oninput="filterTable()">
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Tanggal</th>
+                <th>Mata Pelajaran</th>
+                <th>Nama Siswa</th>
+                <th>NIS</th>
+                <th>Kelas</th>
+                <th>Jam Masuk</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <tr><td colspan="8">
+                <div class="empty-state"><div class="empty-icon">📋</div>
+                <h3>Pilih rentang tanggal</h3>
+                <p>Atur filter di atas lalu klik Tampilkan.</p></div>
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="pagination" class="flex flex-center gap-2 mt-4" style="justify-content:flex-end"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="../js/firebase-config.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+  ['https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js',
+   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+   'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js'
+  ].forEach(src => { const s = document.createElement('script'); s.src = src; document.head.appendChild(s); });
+
+  const user = requireAuth(['admin', 'guru']);
+  if (!user) throw new Error('Not authenticated');
+  renderSidebar('absensi');
+  initMobileSidebar();
+
+  const today = todayString();
+  document.getElementById('filterStart').value = today;
+  document.getElementById('filterEnd').value   = today;
+
+  let allMapel = {};
+  let allSiswa = {};
+  let rawData      = [];
+  let filteredData = [];
+  const PAGE_SIZE  = 20;
+  let currentPage  = 1;
+
+  // Load mapel & siswa untuk referensi filter
+  Promise.all([
+    db.ref('mapel').get(),
+    db.ref('siswa').get()
+  ]).then(([snapMapel, snapSiswa]) => {
+    allMapel = snapMapel.val() || {};
+    allSiswa = snapSiswa.val() || {};
+
+    // Populate filter mapel
+    const selMapel = document.getElementById('filterMapel');
+    Object.entries(allMapel).forEach(([k, m]) => {
+      const opt = document.createElement('option');
+      opt.value = k; opt.textContent = `${m.kode} — ${m.nama}`;
+      selMapel.appendChild(opt);
+    });
+
+    // Populate filter kelas
+    const kelasSet = new Set(Object.values(allSiswa).map(s => s.kelas).filter(Boolean));
+    const selKelas = document.getElementById('filterKelas');
+    [...kelasSet].sort().forEach(k => {
+      const opt = document.createElement('option');
+      opt.value = k; opt.textContent = k;
+      selKelas.appendChild(opt);
+    });
+
+    loadAbsensi();
+  });
+
+  async function loadAbsensi() {
+    const start     = document.getElementById('filterStart').value;
+    const end       = document.getElementById('filterEnd').value;
+    const mapelFil  = document.getElementById('filterMapel').value;
+    const kelasFil  = document.getElementById('filterKelas').value;
+    const statusFil = document.getElementById('filterStatus').value;
+
+    if (!start || !end) return showToast('Pilih rentang tanggal terlebih dahulu.', 'error');
+
+    document.getElementById('tableBody').innerHTML =
+      `<tr><td colspan="8"><div class="page-loader"><div class="spinner"></div></div></td></tr>`;
+
+    // Build list tanggal
+    const dates = [];
+    let cur = new Date(start);
+    const endDate = new Date(end);
+    while (cur <= endDate) {
+      dates.push(cur.toISOString().split('T')[0]);
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    rawData = [];
+
+    // Fetch semua tanggal secara PARALLEL
+    const snapshots = await Promise.all(
+      dates.map(date => db.ref(`absensi_sesi/${date}`).get().then(snap => ({ date, snap })))
+    );
+
+    snapshots.forEach(({ date, snap }) => {
+      if (!snap.exists()) return;
+      // Struktur: absensi_sesi/{tanggal}/{mapelKey}/{siswaKey}
+      Object.entries(snap.val()).forEach(([mapelKey, siswaMap]) => {
+        const mapel = allMapel[mapelKey] || {};
+        Object.entries(siswaMap).forEach(([siswaKey, record]) => {
+          const siswa = allSiswa[siswaKey] || {};
+          rawData.push({
+            date,
+            mapelKey,
+            mapelNama: mapel.nama || record.mapelNama || '-',
+            mapelKode: mapel.kode || '-',
+            siswaKey,
+            nama:   siswa.nama  || record.nama  || 'Tidak Dikenal',
+            nis:    siswa.nis   || '-',
+            kelas:  siswa.kelas || record.kelas  || '-',
+            waktu:  record.waktu,
+            status: record.status || 'hadir',
+            auto:   record.auto || false
+          });
+        });
+      });
+    });
+
+    // Filter
+    filteredData = rawData.filter(r => {
+      if (mapelFil  && r.mapelKey !== mapelFil)  return false;
+      if (kelasFil  && r.kelas    !== kelasFil)  return false;
+      if (statusFil && r.status   !== statusFil) return false;
+      return true;
+    });
+
+    filteredData.sort((a, b) => {
+      if (a.date !== b.date) return b.date.localeCompare(a.date);
+      if (a.mapelKey !== b.mapelKey) return a.mapelKey.localeCompare(b.mapelKey);
+      return (b.waktu || 0) - (a.waktu || 0);
+    });
+
+    updateSummary();
+    currentPage = 1;
+    renderTable();
+  }
+
+  function filterTable() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    filteredData = q
+      ? rawData.filter(r => r.nama.toLowerCase().includes(q) || r.nis.toLowerCase().includes(q))
+      : [...rawData];
+    currentPage = 1;
+    updateSummary();
+    renderTable();
+  }
+
+  function updateSummary() {
+    const hadir     = filteredData.filter(r => r.status === 'hadir').length;
+    const terlambat = filteredData.filter(r => r.status === 'terlambat').length;
+    const alpha     = filteredData.filter(r => r.status === 'alpha').length;
+    document.getElementById('sumTotal').textContent     = filteredData.length;
+    document.getElementById('sumHadir').textContent     = hadir;
+    document.getElementById('sumTerlambat').textContent = terlambat;
+    document.getElementById('sumAlpha').textContent     = alpha;
+  }
+
+  function badgeStatus(status) {
+    if (status === 'hadir')     return `<span class="badge badge-hadir">✅ Hadir</span>`;
+    if (status === 'terlambat') return `<span class="badge badge-izin">⚠️ Terlambat</span>`;
+    return `<span class="badge badge-alpha">❌ Alpha</span>`;
+  }
+
+  function renderTable() {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const page  = filteredData.slice(start, start + PAGE_SIZE);
+    const tbody = document.getElementById('tableBody');
+
+    if (page.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8">
+        <div class="empty-state"><div class="empty-icon">🔍</div>
+        <h3>Tidak ada data</h3><p>Coba ubah filter pencarian.</p></div>
+      </td></tr>`;
+    } else {
+      tbody.innerHTML = page.map((r, i) => `
+        <tr>
+          <td style="color:var(--grey-2)">${start + i + 1}</td>
+          <td>${formatDate(r.date)}</td>
+          <td><span class="badge badge-blue" style="font-size:11px">${r.mapelKode}</span> ${r.mapelNama}</td>
+          <td class="fw-600">${r.nama}</td>
+          <td>${r.nis}</td>
+          <td><span class="badge badge-grey">${r.kelas}</span></td>
+          <td>${r.status === 'alpha' && r.auto ? '<span style="color:var(--grey-2)">—</span>' : formatTime(r.waktu)}</td>
+          <td>${badgeStatus(r.status)}</td>
+        </tr>
+      `).join('');
+    }
+    renderPagination();
+  }
+
+  function renderPagination() {
+    const total = Math.ceil(filteredData.length / PAGE_SIZE);
+    const pg = document.getElementById('pagination');
+    if (total <= 1) { pg.innerHTML = ''; return; }
+    pg.innerHTML = `
+      <button class="btn btn-secondary btn-sm" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>← Prev</button>
+      <span style="font-size:13px;color:var(--grey-2)">Hal ${currentPage} / ${total}</span>
+      <button class="btn btn-secondary btn-sm" onclick="goPage(${currentPage+1})" ${currentPage===total?'disabled':''}>Next →</button>
+    `;
+  }
+
+  function goPage(p) {
+    const total = Math.ceil(filteredData.length / PAGE_SIZE);
+    if (p < 1 || p > total) return;
+    currentPage = p;
+    renderTable();
+  }
+
+  function doExportExcel() {
+    if (!filteredData.length) return showToast('Tidak ada data.', 'error');
+    const headers = ['No','Tanggal','Mapel','Nama','NIS','Kelas','Jam Masuk','Status'];
+    const rows = filteredData.map((r,i) => [
+      i+1, formatDate(r.date), r.mapelNama, r.nama, r.nis, r.kelas,
+      (r.status === 'alpha' && r.auto) ? '-' : formatTime(r.waktu),
+      r.status === 'hadir' ? 'Hadir' : r.status === 'terlambat' ? 'Terlambat' : 'Alpha'
+    ]);
+    exportToExcel(rows, headers, `Rekap_Absensi_${todayString()}`);
+  }
+
+  function doExportPDF() {
+    if (!filteredData.length) return showToast('Tidak ada data.', 'error');
+    const headers = ['No','Tanggal','Mapel','Nama','NIS','Kelas','Jam Masuk','Status'];
+    const rows = filteredData.map((r,i) => [
+      i+1, formatDate(r.date), r.mapelNama, r.nama, r.nis, r.kelas,
+      (r.status === 'alpha' && r.auto) ? '-' : formatTime(r.waktu),
+      r.status === 'hadir' ? 'Hadir' : r.status === 'terlambat' ? 'Terlambat' : 'Alpha'
+    ]);
+    exportToPDF('Rekap Absensi Siswa', headers, rows, `Rekap_Absensi_${todayString()}`);
+  }
+</script>
+</body>
+</html>

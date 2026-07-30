@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="id">
+   <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Manajemen Guru — SiAbsen</title>
+      <link rel="stylesheet" href="../css/style.css" />
+   </head>
+   <body>
+      <div class="mobile-overlay" id="mobileOverlay"></div>
+
+      <!-- Modal Tambah Guru -->
+      <div class="modal-overlay" id="modalGuru">
+         <div class="modal">
+            <div class="modal-header">
+               <h3 id="modalGuruTitle">➕ Tambah Akun Guru</h3>
+               <button class="modal-close" onclick="closeModalGuru()">✕</button>
+            </div>
+
+            <div id="errorGuru" class="error-msg"></div>
+
+            <div class="form-group">
+               <label>Nama Lengkap</label>
+               <input type="text" id="gNama" class="form-input" placeholder="Nama guru" />
+            </div>
+            <div class="form-group">
+               <label>Email (untuk login)</label>
+               <input type="email" id="gEmail" class="form-input" placeholder="guru@sekolah.com" />
+            </div>
+            <div class="grid-2" style="gap: 12px">
+               <div class="form-group">
+                  <label>NIP</label>
+                  <input type="text" id="gNIP" class="form-input" placeholder="Nomor Induk Pegawai" />
+               </div>
+            </div>
+            <div class="form-group" id="passGroup">
+               <label>Password Awal</label>
+               <input type="password" id="gPass" class="form-input" placeholder="Min. 6 karakter" />
+               <p class="text-sm text-grey mt-4">Guru dapat menghubungi admin untuk reset password.</p>
+            </div>
+
+            <div class="modal-footer">
+               <button class="btn btn-secondary" onclick="closeModalGuru()">Batal</button>
+               <button class="btn btn-primary" onclick="saveGuru()" id="btnSaveGuru">💾 Simpan</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- Modal Reset Password -->
+      <div class="modal-overlay" id="modalReset">
+         <div class="modal" style="max-width: 400px">
+            <div class="modal-header">
+               <h3>🔑 Reset Password</h3>
+               <button class="modal-close" onclick="closeReset()">✕</button>
+            </div>
+            <p style="color: var(--grey-2); font-size: 14px; margin-bottom: 16px">Reset password untuk: <strong id="resetNama" style="color: var(--white)"></strong></p>
+            <div class="form-group">
+               <label>Password Baru</label>
+               <input type="password" id="newPass" class="form-input" placeholder="Min. 6 karakter" />
+            </div>
+            <div class="modal-footer">
+               <button class="btn btn-secondary" onclick="closeReset()">Batal</button>
+               <button class="btn btn-primary" onclick="doReset()" id="btnReset">🔑 Reset</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- Modal Nonaktifkan -->
+      <div class="modal-overlay" id="modalToggle">
+         <div class="modal" style="max-width: 380px">
+            <div class="modal-header">
+               <h3 id="toggleTitle">Toggle Status</h3>
+               <button class="modal-close" onclick="closeToggle()">✕</button>
+            </div>
+            <p style="color: var(--grey-2); font-size: 14px" id="toggleMsg"></p>
+            <div class="modal-footer">
+               <button class="btn btn-secondary" onclick="closeToggle()">Batal</button>
+               <button class="btn btn-danger" onclick="confirmToggle()" id="btnToggle">Konfirmasi</button>
+            </div>
+         </div>
+      </div>
+
+      <style>
+         .error-msg {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+         }
+         .error-msg.show {
+            display: block;
+         }
+      </style>
+
+      <div class="app-layout">
+         <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+               <div class="sidebar-logo">
+                  <div class="s-icon">🎓</div>
+                  <div>
+                     <div class="s-title">SiAbsen</div>
+                     <div class="s-sub">Sistem Absensi NFC</div>
+                  </div>
+               </div>
+            </div>
+            <nav class="sidebar-nav" id="sidebarNav"></nav>
+            <div class="sidebar-footer" id="sidebarUser"></div>
+         </aside>
+
+         <main class="main-content">
+            <div class="topbar">
+               <div class="flex flex-center gap-2">
+                  <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+                  <div class="topbar-left">
+                     <h2>Manajemen Guru</h2>
+                     <p>Kelola akun guru yang dapat mengakses sistem</p>
+                  </div>
+               </div>
+               <button class="btn btn-primary" onclick="openModalGuru()">➕ Tambah Guru</button>
+            </div>
+
+            <div class="page-content">
+               <!-- Info Box -->
+               <div class="card mb-6" style="border-color: rgba(59, 130, 246, 0.3); background: rgba(59, 130, 246, 0.05)">
+                  <div class="flex flex-center gap-2">
+                     <span style="font-size: 20px">ℹ️</span>
+                     <div>
+                        <h4>Hak Akses Guru</h4>
+                        <p class="text-sm text-grey mt-4">
+                           Guru dapat: Login ke sistem, melihat rekap absensi siswa, mendaftarkan siswa baru (link UID kartu), dan mengekspor data. Guru <strong>tidak dapat</strong> mengelola akun guru lain.
+                        </p>
+                     </div>
+                  </div>
+               </div>
+
+               <div class="card">
+                  <div class="filter-bar mb-4">
+                     <div class="search-wrapper" style="flex: 1">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" class="search-input" id="searchInput" placeholder="Cari nama atau email..." oninput="applyFilter()" />
+                     </div>
+                     <select id="filterStatus" class="form-input" style="min-width: 140px; padding: 10px 12px" onchange="applyFilter()">
+                        <option value="">Semua Status</option>
+                        <option value="aktif">Aktif</option>
+                        <option value="nonaktif">Nonaktif</option>
+                     </select>
+                  </div>
+
+                  <div class="table-wrapper">
+                     <table>
+                        <thead>
+                           <tr>
+                              <th>#</th>
+                              <th>Nama Guru</th>
+                              <th>NIP</th>
+                              <th>Email</th>
+                              <th>Mata Pelajaran</th>
+                              <th>Status</th>
+                              <th>Dibuat</th>
+                              <th>Aksi</th>
+                           </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                           <tr>
+                              <td colspan="9">
+                                 <div class="page-loader"><div class="spinner"></div></div>
+                              </td>
+                           </tr>
+                        </tbody>
+                     </table>
+                  </div>
+                  <div id="info" class="text-sm text-grey mt-4"></div>
+               </div>
+            </div>
+         </main>
+      </div>
+
+      <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+      <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+      <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+      <script src="../js/firebase-config.js"></script>
+      <script src="../js/utils.js"></script>
+      <script>
+         const user = requireAuth(['admin']);
+         if (!user) throw new Error('Not authenticated');
+
+         renderSidebar('guru');
+         initMobileSidebar();
+
+         let allGuru = [];
+         let allMapel = {};          // { mapelKey: {nama, kode, guruKey} }
+         let filteredGuru = [];
+         let editGuruKey = null;
+         let toggleGuruKey = null;
+         let resetGuruKey = null;
+         let resetGuruEmail = null;
+
+         // Load mapel bersamaan dengan guru
+         db.ref('mapel').get().then(snap => { allMapel = snap.val() || {}; });
+
+         db.ref('users')
+            .orderByChild('role')
+            .equalTo('guru')
+            .on('value', (snap) => {
+               const data = snap.val() || {};
+               allGuru = Object.entries(data).map(([key, val]) => ({ key, ...val }));
+               allGuru.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+               applyFilter();
+            });
+
+         function applyFilter() {
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            const st = document.getElementById('filterStatus').value;
+            filteredGuru = allGuru.filter((g) => {
+               const matchQ = !q || (g.name || '').toLowerCase().includes(q) || (g.email || '').toLowerCase().includes(q);
+               const matchS = !st || (g.status || 'aktif') === st;
+               return matchQ && matchS;
+            });
+            renderTable();
+            document.getElementById('info').textContent = `Menampilkan ${filteredGuru.length} dari ${allGuru.length} guru`;
+         }
+
+         function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            if (filteredGuru.length === 0) {
+               tbody.innerHTML = `<tr><td colspan="9">
+        <div class="empty-state"><div class="empty-icon">👤</div>
+        <h3>Belum ada akun guru</h3><p>Klik "Tambah Guru" untuk membuat akun baru.</p></div>
+      </td></tr>`;
+               return;
+            }
+
+            tbody.innerHTML = filteredGuru
+               .map((g, i) => {
+                  const isAktif = (g.status || 'aktif') === 'aktif';
+                  // Cari mapel yang diassign ke guru ini
+                  const mapelGuru = Object.values(allMapel)
+                    .filter(m => m.guruKey === g.key)
+                    .map(m => `<span class="badge badge-blue" style="font-size:11px;margin:2px">${m.kode}</span>`)
+                    .join(' ') || '<span style="color:var(--grey-2);font-size:12px">—</span>';
+                  return `
+      <tr>
+        <td style="color:var(--grey-2)">${i + 1}</td>
+        <td class="fw-600">${g.name || '-'}</td>
+        <td style="font-size:12px">${g.nip || '-'}</td>
+        <td style="font-size:12px; color:var(--grey-2)">${g.email || '-'}</td>
+        <td>${mapelGuru}</td>
+        <td>
+          <span class="badge ${isAktif ? 'badge-hadir' : 'badge-alpha'}">
+            ${isAktif ? '✅ Aktif' : '⛔ Nonaktif'}
+          </span>
+        </td>
+        <td style="font-size:12px; color:var(--grey-2)">${g.createdAt ? formatDate(new Date(g.createdAt).toISOString().split('T')[0]) : '-'}</td>
+        <td>
+          <div class="flex gap-2">
+            <button class="btn btn-secondary btn-sm" onclick="openReset('${g.key}','${g.name}','${g.email}')" title="Reset Password">🔑</button>
+            <button class="btn btn-${isAktif ? 'danger' : 'success'} btn-sm" onclick="openToggle('${g.key}','${g.name}',${isAktif})">
+              ${isAktif ? '⛔' : '✅'}
+            </button>
+          </div>
+        </td>
+      </tr>`;
+               })
+               .join('');
+         }
+
+         // Modal Tambah Guru
+         function openModalGuru() {
+            document.getElementById('modalGuruTitle').textContent = '➕ Tambah Akun Guru';
+            document.getElementById('gNama').value = '';
+            document.getElementById('gEmail').value = '';
+            document.getElementById('gNIP').value = '';
+            document.getElementById('gPass').value = '';
+            document.getElementById('passGroup').style.display = 'block';
+            hideError();
+            document.getElementById('modalGuru').classList.add('show');
+         }
+
+         function closeModalGuru() {
+            document.getElementById('modalGuru').classList.remove('show');
+         }
+
+         function showError(msg) {
+            const el = document.getElementById('errorGuru');
+            el.textContent = msg;
+            el.classList.add('show');
+         }
+
+         function hideError() {
+            document.getElementById('errorGuru').classList.remove('show');
+         }
+
+         async function saveGuru() {
+            const nama = document.getElementById('gNama').value.trim();
+            const email = document.getElementById('gEmail').value.trim();
+            const nip = document.getElementById('gNIP').value.trim();
+            const pass = document.getElementById('gPass').value;
+
+            if (!nama || !email || !pass) return showError('Nama, email, dan password wajib diisi.');
+            if (pass.length < 6) return showError('Password minimal 6 karakter.');
+
+            const btn = document.getElementById('btnSaveGuru');
+            btn.disabled = true;
+            btn.textContent = 'Membuat akun...';
+            hideError();
+
+            try {
+               // Buat akun Firebase Auth menggunakan API
+               // CATATAN: Ini membutuhkan Firebase Admin SDK di server.
+               // Untuk web-only, kita gunakan createUserWithEmailAndPassword
+               // (Ini akan sign-in ke akun baru — kita perlu sign kembali ke admin)
+
+               const adminEmail = auth.currentUser.email;
+               const adminPass = prompt('Masukkan password admin Anda untuk konfirmasi:');
+               if (!adminPass) throw new Error('Dibatalkan.');
+
+               // Create guru account
+               const cred = await auth.createUserWithEmailAndPassword(email, pass);
+               const newUID = cred.user.uid;
+
+               // Simpan profil ke database
+               await db.ref(`users/${newUID}`).set({
+                  name: nama,
+                  email,
+                  nip,
+                  role: 'guru',
+                  status: 'aktif',
+                  createdAt: Date.now(),
+               });
+
+               // Sign back in as admin
+               await auth.signInWithEmailAndPassword(adminEmail, adminPass);
+
+               showToast(`Akun guru ${nama} berhasil dibuat!`, 'success');
+               closeModalGuru();
+            } catch (err) {
+               let msg = err.message;
+               if (err.code === 'auth/email-already-in-use') msg = 'Email sudah digunakan.';
+               if (err.code === 'auth/invalid-email') msg = 'Format email tidak valid.';
+               showError(msg);
+            } finally {
+               btn.disabled = false;
+               btn.textContent = '💾 Simpan';
+            }
+         }
+
+         // Toggle aktif/nonaktif
+         function openToggle(key, nama, isAktif) {
+            toggleGuruKey = { key, isAktif };
+            document.getElementById('toggleTitle').textContent = isAktif ? '⛔ Nonaktifkan Guru' : '✅ Aktifkan Guru';
+            document.getElementById('toggleMsg').textContent = `Yakin ingin ${isAktif ? 'menonaktifkan' : 'mengaktifkan'} akun "${nama}"?`;
+            document.getElementById('btnToggle').textContent = isAktif ? '⛔ Nonaktifkan' : '✅ Aktifkan';
+            document.getElementById('btnToggle').className = isAktif ? 'btn btn-danger' : 'btn btn-success';
+            document.getElementById('modalToggle').classList.add('show');
+         }
+
+         function closeToggle() {
+            document.getElementById('modalToggle').classList.remove('show');
+            toggleGuruKey = null;
+         }
+
+         async function confirmToggle() {
+            if (!toggleGuruKey) return;
+            const newStatus = toggleGuruKey.isAktif ? 'nonaktif' : 'aktif';
+            try {
+               await db.ref(`users/${toggleGuruKey.key}`).update({ status: newStatus });
+               showToast(`Akun berhasil ${newStatus === 'aktif' ? 'diaktifkan' : 'dinonaktifkan'}.`, 'success');
+               closeToggle();
+            } catch (err) {
+               showToast('Gagal: ' + err.message, 'error');
+            }
+         }
+
+         // Reset password
+         function openReset(key, nama, email) {
+            resetGuruKey = key;
+            resetGuruEmail = email;
+            document.getElementById('resetNama').textContent = nama;
+            document.getElementById('newPass').value = '';
+            document.getElementById('modalReset').classList.add('show');
+         }
+
+         function closeReset() {
+            document.getElementById('modalReset').classList.remove('show');
+            resetGuruKey = null;
+         }
+
+         async function doReset() {
+            const newPass = document.getElementById('newPass').value;
+            if (newPass.length < 6) return showToast('Password minimal 6 karakter.', 'error');
+
+            const btn = document.getElementById('btnReset');
+            btn.disabled = true;
+            btn.textContent = 'Mereset...';
+
+            try {
+               // Firebase Admin Reset: gunakan email reset link
+               await auth.sendPasswordResetEmail(resetGuruEmail);
+               showToast(`Link reset password dikirim ke ${resetGuruEmail}`, 'success');
+               closeReset();
+            } catch (err) {
+               showToast('Gagal: ' + err.message, 'error');
+            } finally {
+               btn.disabled = false;
+               btn.textContent = '🔑 Reset';
+            }
+         }
+      </script>
+   </body>
+</html>

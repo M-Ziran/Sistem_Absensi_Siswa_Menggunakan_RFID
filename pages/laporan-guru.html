@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laporan Absensi — SiAbsen</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .rekap-siswa-row {
+      display: flex; align-items: center; gap: 16px;
+      padding: 12px 0; border-bottom: 1px solid rgba(148,163,184,0.1);
+    }
+    .rekap-siswa-row:last-child { border-bottom: none; }
+    .rekap-avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: rgba(59,130,246,0.15); display: flex; align-items: center;
+      justify-content: center; font-size: 15px; font-weight: 700;
+      color: var(--blue-glow); flex-shrink: 0;
+    }
+    .rekap-bar-wrap {
+      flex: 1; display: flex; gap: 4px; align-items: center;
+    }
+    .rekap-bar-segment {
+      height: 8px; border-radius: 4px; transition: width 0.4s;
+    }
+    .tab-group {
+      display: flex; gap: 0; border: 1px solid rgba(148,163,184,0.15);
+      border-radius: 10px; overflow: hidden; margin-bottom: 20px;
+    }
+    .tab-btn {
+      flex: 1; padding: 10px 16px; background: transparent;
+      border: none; color: var(--grey-2); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .tab-btn.active { background: var(--blue); color: #fff; }
+    .tab-btn:hover:not(.active) { background: rgba(59,130,246,0.1); color: var(--white); }
+    .summary-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(148,163,184,0.1); border-radius: 8px;
+      padding: 6px 12px; font-size: 13px; color: var(--grey-2);
+    }
+    .summary-chip strong { color: var(--white); }
+  </style>
+</head>
+<body>
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="s-icon">🎓</div>
+        <div><div class="s-title">SiAbsen</div><div class="s-sub">Sistem Absensi NFC</div></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <div class="sidebar-footer" id="sidebarUser"></div>
+  </aside>
+
+  <main class="main-content">
+    <div class="topbar">
+      <div class="flex flex-center gap-2">
+        <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+        <div class="topbar-left">
+          <h2>Laporan Absensi</h2>
+          <p>Laporan kehadiran siswa untuk mata pelajaran Anda</p>
+        </div>
+      </div>
+      <div class="topbar-right export-group">
+        <button class="btn btn-success btn-sm" onclick="doExportExcel()">📥 Excel</button>
+        <button class="btn btn-danger btn-sm" onclick="doExportPDF()">📄 PDF</button>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- FILTER -->
+      <div class="card mb-6">
+        <h3 class="mb-4">🔍 Filter Laporan</h3>
+        <div class="filter-bar" style="flex-wrap:wrap;gap:12px">
+          <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <label style="margin-bottom:6px">Tanggal Awal</label>
+            <input type="date" id="filterStart" class="form-input" style="padding:10px 12px">
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <label style="margin-bottom:6px">Tanggal Akhir</label>
+            <input type="date" id="filterEnd" class="form-input" style="padding:10px 12px">
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:180px">
+            <label style="margin-bottom:6px">Mata Pelajaran</label>
+            <select id="filterMapel" class="form-input" style="padding:10px 12px">
+              <option value="">Semua Mapel Saya</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <label style="margin-bottom:6px">Kelas</label>
+            <select id="filterKelas" class="form-input" style="padding:10px 12px">
+              <option value="">Semua Kelas</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <label style="margin-bottom:6px">Status</label>
+            <select id="filterStatus" class="form-input" style="padding:10px 12px">
+              <option value="">Semua Status</option>
+              <option value="hadir">✅ Hadir</option>
+              <option value="terlambat">⚠️ Terlambat</option>
+              <option value="alpha">❌ Alpha</option>
+            </select>
+          </div>
+          <div style="align-self:flex-end">
+            <button class="btn btn-primary" onclick="loadLaporan()" style="height:43px">🔍 Tampilkan</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div class="stats-grid mb-6" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat-card" style="--accent:var(--blue)">
+          <div class="stat-icon" style="background:rgba(59,130,246,0.15)">📋</div>
+          <div><div class="stat-value" id="sumTotal">0</div><div class="stat-label">Total Record</div></div>
+        </div>
+        <div class="stat-card" style="--accent:var(--green)">
+          <div class="stat-icon" style="background:rgba(16,185,129,0.15)">✅</div>
+          <div><div class="stat-value" id="sumHadir">0</div><div class="stat-label">Hadir</div></div>
+        </div>
+        <div class="stat-card" style="--accent:var(--yellow)">
+          <div class="stat-icon" style="background:rgba(245,158,11,0.15)">⚠️</div>
+          <div><div class="stat-value" id="sumTerlambat">0</div><div class="stat-label">Terlambat</div></div>
+        </div>
+        <div class="stat-card" style="--accent:var(--red)">
+          <div class="stat-icon" style="background:rgba(239,68,68,0.15)">❌</div>
+          <div><div class="stat-value" id="sumAlpha">0</div><div class="stat-label">Alpha</div></div>
+        </div>
+      </div>
+
+      <!-- TAB VIEW -->
+      <div class="card">
+        <div class="tab-group">
+          <button class="tab-btn active" id="tab1" onclick="switchTab('detail')">📋 Detail Per Sesi</button>
+          <button class="tab-btn" id="tab2" onclick="switchTab('rekap')">👤 Rekap Per Siswa</button>
+        </div>
+
+        <!-- Tab 1: Detail Per Sesi -->
+        <div id="viewDetail">
+          <div class="flex flex-center gap-2 mb-4" style="justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div id="detailChips" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+            <div class="search-wrapper" style="min-width:200px">
+              <span class="search-icon">🔍</span>
+              <input type="text" class="search-input" id="searchDetail" placeholder="Cari nama / NIS..." oninput="filterDetail()">
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Tanggal</th>
+                  <th>Mata Pelajaran</th>
+                  <th>Nama Siswa</th>
+                  <th>NIS</th>
+                  <th>Kelas</th>
+                  <th>Jam Masuk</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tableDetail">
+                <tr><td colspan="8">
+                  <div class="empty-state"><div class="empty-icon">📋</div>
+                  <h3>Pilih filter & klik Tampilkan</h3></div>
+                </td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="paginationDetail" class="flex flex-center gap-2 mt-4" style="justify-content:flex-end"></div>
+        </div>
+
+        <!-- Tab 2: Rekap Per Siswa -->
+        <div id="viewRekap" style="display:none">
+          <div class="flex flex-center gap-2 mb-4" style="justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <p style="font-size:13px;color:var(--grey-2);margin:0">Rekap kehadiran tiap siswa berdasarkan filter yang aktif.</p>
+            <div class="search-wrapper" style="min-width:200px">
+              <span class="search-icon">🔍</span>
+              <input type="text" class="search-input" id="searchRekap" placeholder="Cari nama / NIS..." oninput="filterRekap()">
+            </div>
+          </div>
+          <div id="listRekap">
+            <div class="empty-state"><div class="empty-icon">👤</div><p>Belum ada data.</p></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="../js/firebase-config.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+  ['https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js',
+   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+   'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js'
+  ].forEach(src => { const s = document.createElement('script'); s.src = src; document.head.appendChild(s); });
+
+  // Guru only
+  const user = requireAuth(['guru']);
+  if (!user) throw new Error('Not authenticated');
+  renderSidebar('laporan');
+  initMobileSidebar();
+
+  const today = todayString();
+  document.getElementById('filterStart').value = today;
+  document.getElementById('filterEnd').value   = today;
+
+  let myMapelKeys = [];   // key mapel milik guru ini
+  let allMapel    = {};
+  let allSiswa    = {};
+  let rawData     = [];
+  let filteredDetail = [];
+  let filteredRekap  = [];
+  const PAGE_SIZE = 20;
+  let currentPage = 1;
+  let activeTab   = 'detail';
+
+  // Load mapel guru ini + kelas + siswa (untuk fallback nama/nis/kelas)
+  Promise.all([
+    db.ref('mapel').get(),
+    db.ref('kelas').get(),
+    db.ref('siswa').get(),
+  ]).then(([snapMapel, snapKelas, snapSiswa]) => {
+    allMapel = snapMapel.val() || {};
+    allSiswa = snapSiswa.val() || {};
+
+    // Filter mapel milik guru ini
+    const selMapel = document.getElementById('filterMapel');
+    Object.entries(allMapel).forEach(([k, m]) => {
+      if (m.guruKey !== user.uid) return;
+      myMapelKeys.push(k);
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = `${m.kode} — ${m.nama}`;
+      selMapel.appendChild(opt);
+    });
+
+    // Filter kelas dari node /kelas
+    const kelasData = snapKelas.val() || {};
+    const selKelas = document.getElementById('filterKelas');
+    Object.values(kelasData)
+      .map(v => v.nama).filter(Boolean).sort()
+      .forEach(k => {
+        const opt = document.createElement('option');
+        opt.value = k; opt.textContent = k;
+        selKelas.appendChild(opt);
+      });
+
+    loadLaporan();
+  });
+
+  async function loadLaporan() {
+    const start     = document.getElementById('filterStart').value;
+    const end       = document.getElementById('filterEnd').value;
+    const mapelFil  = document.getElementById('filterMapel').value;
+    const kelasFil  = document.getElementById('filterKelas').value;
+    const statusFil = document.getElementById('filterStatus').value;
+
+    if (!start || !end) return showToast('Pilih rentang tanggal.', 'error');
+    if (myMapelKeys.length === 0) {
+      rawData = [];
+      updateSummary();
+      renderDetail();
+      renderRekapSiswa();
+      return;
+    }
+
+    document.getElementById('tableDetail').innerHTML =
+      `<tr><td colspan="8"><div class="page-loader"><div class="spinner"></div></div></td></tr>`;
+
+    const dates = [];
+    let cur = new Date(start);
+    const endDate = new Date(end);
+    while (cur <= endDate) { dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate() + 1); }
+
+    rawData = [];
+
+    const snapshots = await Promise.all(
+      dates.map(date => db.ref(`absensi_sesi/${date}`).get().then(snap => ({ date, snap })))
+    );
+
+    snapshots.forEach(({ date, snap }) => {
+      if (!snap.exists()) return;
+      Object.entries(snap.val()).forEach(([mapelKey, siswaMap]) => {
+        // Hanya mapel milik guru ini
+        if (!myMapelKeys.includes(mapelKey)) return;
+        const mapel = allMapel[mapelKey] || {};
+        Object.entries(siswaMap).forEach(([siswaKey, record]) => {
+          const siswa = allSiswa[siswaKey] || {};
+          rawData.push({
+            date, mapelKey,
+            mapelNama: mapel.nama || record.mapelNama || '-',
+            mapelKode: mapel.kode || '-',
+            siswaKey,
+            nama:   siswa.nama  || record.nama   || 'Tidak Dikenal',
+            nis:    siswa.nis   || record.nis    || '-',
+            kelas:  siswa.kelas || record.kelas  || '-',
+            waktu:  record.waktu,
+            status: record.status || 'hadir',
+            auto:   record.auto   || false,
+          });
+        });
+      });
+    });
+
+    // Apply filter
+    filteredDetail = rawData.filter(r => {
+      if (mapelFil  && r.mapelKey !== mapelFil)  return false;
+      if (kelasFil  && r.kelas    !== kelasFil)  return false;
+      if (statusFil && r.status   !== statusFil) return false;
+      return true;
+    });
+
+    filteredDetail.sort((a, b) => {
+      if (a.date !== b.date) return b.date.localeCompare(a.date);
+      if (a.mapelKey !== b.mapelKey) return a.mapelKey.localeCompare(b.mapelKey);
+      return (b.waktu || 0) - (a.waktu || 0);
+    });
+
+    buildRekapSiswa();
+    updateSummary();
+    currentPage = 1;
+    renderDetail();
+    renderRekapSiswa();
+    updateDetailChips();
+  }
+
+  function updateDetailChips() {
+    const mapelFil = document.getElementById('filterMapel').value;
+    const kelasFil = document.getElementById('filterKelas').value;
+    const chips = document.getElementById('detailChips');
+    let html = '';
+    if (mapelFil && allMapel[mapelFil]) {
+      html += `<span class="summary-chip">📚 <strong>${allMapel[mapelFil].nama}</strong></span>`;
+    }
+    if (kelasFil) {
+      html += `<span class="summary-chip">🏫 <strong>${kelasFil}</strong></span>`;
+    }
+    if (!html) html = `<span class="summary-chip">Semua mapel saya</span>`;
+    chips.innerHTML = html;
+  }
+
+  function filterDetail() {
+    const q = document.getElementById('searchDetail').value.toLowerCase();
+    filteredDetail = q
+      ? rawData.filter(r => r.nama.toLowerCase().includes(q) || r.nis.toLowerCase().includes(q))
+      : [...rawData];
+    currentPage = 1;
+    updateSummary();
+    renderDetail();
+  }
+
+  function filterRekap() {
+    renderRekapSiswa();
+  }
+
+  // ── Rekap Per Siswa ──
+  let rekapMap = {};   // { siswaKey: { nama, nis, kelas, hadir, terlambat, alpha, total } }
+
+  function buildRekapSiswa() {
+    rekapMap = {};
+    filteredDetail.forEach(r => {
+      if (!rekapMap[r.siswaKey]) {
+        rekapMap[r.siswaKey] = { nama: r.nama, nis: r.nis, kelas: r.kelas, hadir: 0, terlambat: 0, alpha: 0, total: 0 };
+      }
+      rekapMap[r.siswaKey].total++;
+      if (r.status === 'hadir')     rekapMap[r.siswaKey].hadir++;
+      else if (r.status === 'terlambat') rekapMap[r.siswaKey].terlambat++;
+      else                          rekapMap[r.siswaKey].alpha++;
+    });
+  }
+
+  function renderRekapSiswa() {
+    const q = (document.getElementById('searchRekap')?.value || '').toLowerCase();
+    let list = Object.entries(rekapMap).map(([k, v]) => ({ key: k, ...v }));
+    if (q) list = list.filter(s => s.nama.toLowerCase().includes(q) || s.nis.toLowerCase().includes(q));
+    list.sort((a, b) => a.nama.localeCompare(b.nama));
+
+    const container = document.getElementById('listRekap');
+    if (list.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">👤</div><p>Tidak ada data siswa untuk filter ini.</p></div>`;
+      return;
+    }
+
+    container.innerHTML = list.map(s => {
+      const pct = s.total > 0 ? { h: (s.hadir/s.total*100).toFixed(1), t: (s.terlambat/s.total*100).toFixed(1), a: (s.alpha/s.total*100).toFixed(1) } : { h: 0, t: 0, a: 0 };
+      const hadirPct = s.total > 0 ? ((s.hadir + s.terlambat) / s.total * 100).toFixed(0) : 0;
+      return `
+        <div class="rekap-siswa-row">
+          <div class="rekap-avatar">${(s.nama || '?')[0].toUpperCase()}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;color:var(--white);font-size:14px">${s.nama}</div>
+            <div style="font-size:12px;color:var(--grey-2)">${s.nis} · ${s.kelas}</div>
+            <div class="rekap-bar-wrap" style="margin-top:6px">
+              <div class="rekap-bar-segment" style="width:${pct.h}%;background:rgba(16,185,129,0.7)" title="Hadir: ${s.hadir}"></div>
+              <div class="rekap-bar-segment" style="width:${pct.t}%;background:rgba(245,158,11,0.7)" title="Terlambat: ${s.terlambat}"></div>
+              <div class="rekap-bar-segment" style="width:${pct.a}%;background:rgba(239,68,68,0.5)" title="Alpha: ${s.alpha}"></div>
+            </div>
+          </div>
+          <div style="text-align:right;min-width:120px">
+            <div style="font-size:18px;font-weight:800;color:${Number(hadirPct) >= 75 ? 'var(--green)' : 'var(--red)'}">${hadirPct}%</div>
+            <div style="font-size:11px;color:var(--grey-2);margin-top:2px">
+              ✅${s.hadir} ⚠️${s.terlambat} ❌${s.alpha}
+            </div>
+            <div style="font-size:11px;color:var(--grey-2)">${s.total} sesi</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function updateSummary() {
+    const hadir     = filteredDetail.filter(r => r.status === 'hadir').length;
+    const terlambat = filteredDetail.filter(r => r.status === 'terlambat').length;
+    const alpha     = filteredDetail.filter(r => r.status === 'alpha').length;
+    document.getElementById('sumTotal').textContent     = filteredDetail.length;
+    document.getElementById('sumHadir').textContent     = hadir;
+    document.getElementById('sumTerlambat').textContent = terlambat;
+    document.getElementById('sumAlpha').textContent     = alpha;
+  }
+
+  function badgeStatus(status) {
+    if (status === 'hadir')     return `<span class="badge badge-hadir">✅ Hadir</span>`;
+    if (status === 'terlambat') return `<span class="badge badge-izin">⚠️ Terlambat</span>`;
+    return `<span class="badge badge-alpha">❌ Alpha</span>`;
+  }
+
+  function renderDetail() {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const page  = filteredDetail.slice(start, start + PAGE_SIZE);
+    const tbody = document.getElementById('tableDetail');
+
+    if (page.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8">
+        <div class="empty-state"><div class="empty-icon">🔍</div>
+        <h3>Tidak ada data</h3><p>Coba ubah filter atau rentang tanggal.</p></div>
+      </td></tr>`;
+    } else {
+      tbody.innerHTML = page.map((r, i) => `
+        <tr>
+          <td style="color:var(--grey-2)">${start + i + 1}</td>
+          <td>${formatDate(r.date)}</td>
+          <td><span class="badge badge-blue" style="font-size:11px">${r.mapelKode}</span> ${r.mapelNama}</td>
+          <td class="fw-600">${r.nama}</td>
+          <td>${r.nis}</td>
+          <td><span class="badge badge-grey">${r.kelas}</span></td>
+          <td>${r.status === 'alpha' && r.auto ? '<span style="color:var(--grey-2)">—</span>' : formatTime(r.waktu)}</td>
+          <td>${badgeStatus(r.status)}</td>
+        </tr>
+      `).join('');
+    }
+    renderPaginationDetail();
+  }
+
+  function renderPaginationDetail() {
+    const total = Math.ceil(filteredDetail.length / PAGE_SIZE);
+    const pg = document.getElementById('paginationDetail');
+    if (total <= 1) { pg.innerHTML = ''; return; }
+    pg.innerHTML = `
+      <button class="btn btn-secondary btn-sm" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>← Prev</button>
+      <span style="font-size:13px;color:var(--grey-2)">Hal ${currentPage} / ${total}</span>
+      <button class="btn btn-secondary btn-sm" onclick="goPage(${currentPage+1})" ${currentPage===total?'disabled':''}>Next →</button>`;
+  }
+
+  function goPage(p) {
+    const total = Math.ceil(filteredDetail.length / PAGE_SIZE);
+    if (p < 1 || p > total) return;
+    currentPage = p;
+    renderDetail();
+  }
+
+  // ── Tab Switch ──
+  function switchTab(tab) {
+    activeTab = tab;
+    document.getElementById('viewDetail').style.display = tab === 'detail' ? 'block' : 'none';
+    document.getElementById('viewRekap').style.display  = tab === 'rekap'  ? 'block' : 'none';
+    document.getElementById('tab1').className = 'tab-btn' + (tab === 'detail' ? ' active' : '');
+    document.getElementById('tab2').className = 'tab-btn' + (tab === 'rekap'  ? ' active' : '');
+    if (tab === 'rekap') renderRekapSiswa();
+  }
+
+  // ── Export ──
+  function doExportExcel() {
+    if (!filteredDetail.length) return showToast('Tidak ada data.', 'error');
+    const headers = ['No','Tanggal','Mapel','Nama','NIS','Kelas','Jam Masuk','Status'];
+    const rows = filteredDetail.map((r, i) => [
+      i+1, formatDate(r.date), `${r.mapelKode} - ${r.mapelNama}`, r.nama, r.nis, r.kelas,
+      (r.status === 'alpha' && r.auto) ? '-' : formatTime(r.waktu),
+      r.status === 'hadir' ? 'Hadir' : r.status === 'terlambat' ? 'Terlambat' : 'Alpha'
+    ]);
+    exportToExcel(rows, headers, `Laporan_Absensi_${user.name || 'Guru'}_${todayString()}`);
+  }
+
+  function doExportPDF() {
+    if (!filteredDetail.length) return showToast('Tidak ada data.', 'error');
+    const headers = ['No','Tanggal','Mapel','Nama','NIS','Kelas','Jam','Status'];
+    const rows = filteredDetail.map((r, i) => [
+      i+1, formatDate(r.date), r.mapelNama, r.nama, r.nis, r.kelas,
+      (r.status === 'alpha' && r.auto) ? '-' : formatTime(r.waktu),
+      r.status === 'hadir' ? 'Hadir' : r.status === 'terlambat' ? 'Terlambat' : 'Alpha'
+    ]);
+    exportToPDF(`Laporan Absensi — ${user.name || 'Guru'}`, headers, rows, `Laporan_Absensi_${todayString()}`);
+  }
+</script>
+</body>
+</html>

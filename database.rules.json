@@ -1,0 +1,42 @@
+{
+  "rules": {
+    "users": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
+    "siswa": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "absensi": {
+      ".read": "auth != null",
+      ".write": true
+    },
+    "last_scan": {
+      ".read": "auth != null",
+      ".write": true
+    },
+    "mapel": {
+      ".read": "auth != null",
+      ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "kelas": {
+      ".read": "auth != null",
+      ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "sesi_aktif": {
+      ".read": true,
+      ".write": "root.child('users').child(auth.uid).child('role').val() === 'guru'"
+    },
+    "sesi_arsip": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "absensi_sesi": {
+      ".read": "auth != null",
+      ".write": true
+    }
+  }
+}

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manajemen Kelas — SiAbsen</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<!-- Modal Tambah/Edit Kelas -->
+<div class="modal-overlay" id="modalKelas">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3 id="modalKelasTitle">➕ Tambah Kelas</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label>Nama Kelas</label>
+      <input type="text" id="inputNamaKelas" class="form-input" placeholder="Contoh: X-A, XI-IPA-1, XII-B">
+    </div>
+    <div class="form-group">
+      <label>Keterangan (opsional)</label>
+      <input type="text" id="inputKetKelas" class="form-input" placeholder="Keterangan tambahan">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
+      <button class="btn btn-primary" onclick="saveKelas()" id="btnSaveKelas">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Hapus -->
+<div class="modal-overlay" id="modalHapus">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <h3>🗑️ Hapus Kelas</h3>
+      <button class="modal-close" onclick="closeHapus()">✕</button>
+    </div>
+    <p style="color:var(--grey-2);font-size:14px">Yakin ingin menghapus kelas <strong id="hapusNama" style="color:var(--white)"></strong>? Data siswa yang sudah terdaftar di kelas ini tidak akan terhapus.</p>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeHapus()">Batal</button>
+      <button class="btn btn-danger" onclick="doHapus()">🗑️ Hapus</button>
+    </div>
+  </div>
+</div>
+
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="s-icon">🎓</div>
+        <div><div class="s-title">SiAbsen</div><div class="s-sub">Sistem Absensi NFC</div></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <div class="sidebar-footer" id="sidebarUser"></div>
+  </aside>
+
+  <main class="main-content">
+    <div class="topbar">
+      <div class="flex flex-center gap-2">
+        <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+        <div class="topbar-left">
+          <h2>Manajemen Kelas</h2>
+          <p>Kelola daftar kelas — digunakan saat input siswa dan mapel</p>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="openModal()">➕ Tambah Kelas</button>
+    </div>
+
+    <div class="page-content">
+      <div class="card mb-6" style="border-color:rgba(59,130,246,0.3);background:rgba(59,130,246,0.05)">
+        <div class="flex flex-center gap-2">
+          <span style="font-size:20px">ℹ️</span>
+          <div>
+            <h4>Tentang Manajemen Kelas</h4>
+            <p class="text-sm text-grey mt-4">Kelas yang ditambahkan di sini akan muncul sebagai <strong>dropdown</strong> saat mendaftarkan siswa, mengisi mata pelajaran, dan saat guru memilih kelas sebelum mulai sesi absensi.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="flex flex-center gap-2 mb-4" style="justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <h3>🏫 Daftar Kelas (<span id="totalKelas">0</span>)</h3>
+          <div class="search-wrapper" style="min-width:200px">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" id="searchKelas" placeholder="Cari kelas..." oninput="filterKelas()">
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nama Kelas</th>
+                <th>Keterangan</th>
+                <th>Dibuat</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <tr><td colspan="5"><div class="page-loader"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="../js/firebase-config.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+  const user = requireAuth(['admin']);
+  if (!user) throw new Error('Not authenticated');
+  renderSidebar('kelas');
+  initMobileSidebar();
+
+  let allKelas = [];
+  let filteredKelas = [];
+  let editKey = null;
+  let hapusKey = null;
+
+  db.ref('kelas').orderByChild('nama').on('value', snap => {
+    const data = snap.val() || {};
+    allKelas = Object.entries(data).map(([key, val]) => ({ key, ...val }));
+    allKelas.sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
+    filterKelas();
+  });
+
+  function filterKelas() {
+    const q = document.getElementById('searchKelas').value.toLowerCase();
+    filteredKelas = q
+      ? allKelas.filter(k => (k.nama || '').toLowerCase().includes(q))
+      : [...allKelas];
+    renderTable();
+    document.getElementById('totalKelas').textContent = allKelas.length;
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('tableBody');
+    if (filteredKelas.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5">
+        <div class="empty-state"><div class="empty-icon">🏫</div>
+        <h3>Belum ada kelas</h3><p>Klik "Tambah Kelas" untuk menambahkan kelas baru.</p></div>
+      </td></tr>`;
+      return;
+    }
+    tbody.innerHTML = filteredKelas.map((k, i) => `
+      <tr>
+        <td style="color:var(--grey-2)">${i + 1}</td>
+        <td class="fw-600"><span class="badge badge-blue">${k.nama || '-'}</span></td>
+        <td style="font-size:13px;color:var(--grey-2)">${k.keterangan || '—'}</td>
+        <td style="font-size:12px;color:var(--grey-2)">${k.createdAt ? formatDate(new Date(k.createdAt).toISOString().split('T')[0]) : '-'}</td>
+        <td>
+          <div class="flex gap-2">
+            <button class="btn btn-secondary btn-sm" onclick="openModal('${k.key}')">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="openHapus('${k.key}', '${(k.nama || '').replace(/'/g,"\\'")}')">🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function openModal(key = null) {
+    editKey = key;
+    document.getElementById('modalKelasTitle').textContent = key ? '✏️ Edit Kelas' : '➕ Tambah Kelas';
+    if (key) {
+      const k = allKelas.find(x => x.key === key);
+      document.getElementById('inputNamaKelas').value = k?.nama || '';
+      document.getElementById('inputKetKelas').value = k?.keterangan || '';
+    } else {
+      document.getElementById('inputNamaKelas').value = '';
+      document.getElementById('inputKetKelas').value = '';
+    }
+    document.getElementById('modalKelas').classList.add('show');
+    setTimeout(() => document.getElementById('inputNamaKelas').focus(), 100);
+  }
+
+  function closeModal() {
+    document.getElementById('modalKelas').classList.remove('show');
+    editKey = null;
+  }
+
+  async function saveKelas() {
+    const nama = document.getElementById('inputNamaKelas').value.trim();
+    const keterangan = document.getElementById('inputKetKelas').value.trim();
+    if (!nama) return showToast('Nama kelas wajib diisi.', 'error');
+
+    // Cek duplikat nama
+    const dup = allKelas.find(k => k.nama.toLowerCase() === nama.toLowerCase() && k.key !== editKey);
+    if (dup) return showToast(`Kelas "${nama}" sudah ada.`, 'error');
+
+    const btn = document.getElementById('btnSaveKelas');
+    btn.disabled = true; btn.textContent = 'Menyimpan...';
+    try {
+      if (editKey) {
+        await db.ref(`kelas/${editKey}`).update({ nama, keterangan, updatedAt: Date.now() });
+        showToast('Kelas berhasil diperbarui!', 'success');
+      } else {
+        await db.ref('kelas').push({ nama, keterangan, createdAt: Date.now() });
+        showToast(`Kelas "${nama}" berhasil ditambahkan!`, 'success');
+      }
+      closeModal();
+    } catch (err) {
+      showToast('Gagal: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = '💾 Simpan';
+    }
+  }
+
+  function openHapus(key, nama) {
+    hapusKey = key;
+    document.getElementById('hapusNama').textContent = nama;
+    document.getElementById('modalHapus').classList.add('show');
+  }
+
+  function closeHapus() {
+    document.getElementById('modalHapus').classList.remove('show');
+    hapusKey = null;
+  }
+
+  async function doHapus() {
+    if (!hapusKey) return;
+    try {
+      await db.ref(`kelas/${hapusKey}`).remove();
+      showToast('Kelas berhasil dihapus.', 'success');
+      closeHapus();
+    } catch (err) {
+      showToast('Gagal: ' + err.message, 'error');
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="id">
+   <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Mata Pelajaran — SiAbsen</title>
+      <link rel="stylesheet" href="../css/style.css" />
+   </head>
+   <body>
+      <div class="mobile-overlay" id="mobileOverlay"></div>
+
+      <!-- Modal Tambah/Edit Mapel -->
+      <div class="modal-overlay" id="modalMapel">
+         <div class="modal" style="max-width: 480px">
+            <div class="modal-header">
+               <h3 id="modalMapelTitle">➕ Tambah Mata Pelajaran</h3>
+               <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div
+               id="errorMapel"
+               class="error-msg"
+               style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 16px"
+            ></div>
+
+            <div class="form-group">
+               <label>Nama Mata Pelajaran</label>
+               <input type="text" id="inputNamaMapel" class="form-input" placeholder="Contoh: Matematika" />
+            </div>
+            <div class="grid-2" style="gap: 12px">
+               <div class="form-group">
+                  <label>Kode Mapel</label>
+                  <input type="text" id="inputKodeMapel" class="form-input" placeholder="Contoh: MTK" style="text-transform: uppercase" />
+               </div>
+               <div class="form-group">
+                  <label>Toleransi Keterlambatan (menit)</label>
+                  <input type="number" id="inputToleransi" class="form-input" placeholder="Contoh: 15" min="0" max="60" />
+               </div>
+            </div>
+            <div class="form-group">
+               <label>Jam Mulai</label>
+               <input type="time" id="inputJamMulai" class="form-input" />
+            </div>
+            <div class="form-group">
+               <label>Guru Pengampu</label>
+               <select id="inputGuruMapel" class="form-input">
+                  <option value="">— Pilih Guru —</option>
+               </select>
+            </div>
+            <div class="form-group">
+               <label>Keterangan (opsional)</label>
+               <input type="text" id="inputKetMapel" class="form-input" placeholder="Keterangan tambahan" />
+            </div>
+
+            <div class="modal-footer">
+               <button class="btn btn-secondary" onclick="closeModal()">Batal</button>
+               <button class="btn btn-primary" onclick="saveMapel()" id="btnSaveMapel">💾 Simpan</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- Modal Hapus -->
+      <div class="modal-overlay" id="modalHapus">
+         <div class="modal" style="max-width: 380px">
+            <div class="modal-header">
+               <h3>🗑️ Hapus Mata Pelajaran</h3>
+               <button class="modal-close" onclick="closeHapus()">✕</button>
+            </div>
+            <p style="color: var(--grey-2); font-size: 14px; margin-bottom: 16px">Yakin ingin menghapus mata pelajaran <strong id="hapusNama" style="color: var(--white)"></strong>? Semua data sesi absensi terkait juga akan terhapus.</p>
+            <div class="modal-footer">
+               <button class="btn btn-secondary" onclick="closeHapus()">Batal</button>
+               <button class="btn btn-danger" onclick="doHapus()" id="btnHapus">🗑️ Hapus</button>
+            </div>
+         </div>
+      </div>
+
+      <div class="app-layout">
+         <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+               <div class="sidebar-logo">
+                  <div class="s-icon">🎓</div>
+                  <div>
+                     <div class="s-title">SiAbsen</div>
+                     <div class="s-sub">Sistem Absensi NFC</div>
+                  </div>
+               </div>
+            </div>
+            <nav class="sidebar-nav" id="sidebarNav"></nav>
+            <div class="sidebar-footer" id="sidebarUser"></div>
+         </aside>
+
+         <main class="main-content">
+            <div class="topbar">
+               <div class="flex flex-center gap-2">
+                  <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+                  <div class="topbar-left">
+                     <h2>Mata Pelajaran</h2>
+                     <p>Kelola daftar mata pelajaran — kelas dipilih saat mulai sesi</p>
+                  </div>
+               </div>
+               <div class="topbar-right">
+                  <button class="btn btn-primary" onclick="openModal()">➕ Tambah Mapel</button>
+               </div>
+            </div>
+
+            <div class="page-content">
+               <!-- Stats -->
+               <div class="stats-grid mb-6" style="grid-template-columns: repeat(3, 1fr)">
+                  <div class="stat-card" style="--accent: var(--blue)">
+                     <div class="stat-icon" style="background: rgba(59, 130, 246, 0.15)">📚</div>
+                     <div>
+                        <div class="stat-value" id="statTotal">0</div>
+                        <div class="stat-label">Total Mapel</div>
+                     </div>
+                  </div>
+                  <div class="stat-card" style="--accent: var(--green)">
+                     <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15)">✅</div>
+                     <div>
+                        <div class="stat-value" id="statAktif">0</div>
+                        <div class="stat-label">Ada Guru</div>
+                     </div>
+                  </div>
+                  <div class="stat-card" style="--accent: var(--yellow)">
+                     <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15)">⏰</div>
+                     <div>
+                        <div class="stat-value" id="statDenganToleransi">0</div>
+                        <div class="stat-label">Pakai Toleransi</div>
+                     </div>
+                  </div>
+               </div>
+
+               <!-- Info box -->
+               <div class="card mb-6" style="border-color: rgba(59, 130, 246, 0.3); background: rgba(59, 130, 246, 0.05)">
+                  <div class="flex flex-center gap-2">
+                     <span style="font-size: 20px">ℹ️</span>
+                     <p class="text-sm text-grey" style="margin: 0">
+                        Mata pelajaran bersifat umum dan tidak terikat kelas tertentu.
+                        <strong style="color: var(--white)">Kelas dipilih oleh guru saat memulai sesi absensi.</strong>
+                     </p>
+                  </div>
+               </div>
+
+               <!-- Tabel -->
+               <div class="card">
+                  <div class="flex flex-center gap-2 mb-4" style="justify-content: space-between; flex-wrap: wrap; gap: 12px">
+                     <h3>📚 Daftar Mata Pelajaran</h3>
+                     <div class="search-wrapper" style="min-width: 200px">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" class="search-input" id="searchMapel" placeholder="Cari mapel atau guru..." oninput="filterMapel()" />
+                     </div>
+                  </div>
+                  <div class="table-wrapper">
+                     <table>
+                        <thead>
+                           <tr>
+                              <th>#</th>
+                              <th>Kode</th>
+                              <th>Nama Mapel</th>
+                              <th>Jam Mulai</th>
+                              <th>Toleransi</th>
+                              <th>Guru Pengampu</th>
+                              <th>Aksi</th>
+                           </tr>
+                        </thead>
+                        <tbody id="tableBodyMapel">
+                           <tr>
+                              <td colspan="7">
+                                 <div class="empty-state">
+                                    <div class="empty-icon">⏳</div>
+                                    <h3>Memuat data...</h3>
+                                 </div>
+                              </td>
+                           </tr>
+                        </tbody>
+                     </table>
+                  </div>
+               </div>
+            </div>
+         </main>
+      </div>
+
+      <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+      <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+      <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+      <script src="../js/firebase-config.js"></script>
+      <script src="../js/utils.js"></script>
+      <script>
+         const user = requireAuth(['admin']);
+         if (!user) throw new Error('Not authenticated');
+         renderSidebar('mapel');
+         initMobileSidebar();
+
+         let allMapel = {};
+         let allGuru = {};
+         let filteredMapel = [];
+         let editKey = null;
+         let hapusKey = null;
+
+         // Load daftar guru untuk dropdown
+         db.ref('users')
+            .get()
+            .then((snap) => {
+               const allUsers = snap.val() || {};
+               allGuru = {};
+               Object.entries(allUsers).forEach(([k, v]) => {
+                  if (v.role === 'guru' && (v.status || 'aktif') === 'aktif') allGuru[k] = v;
+               });
+               const selGuru = document.getElementById('inputGuruMapel');
+               Object.entries(allGuru)
+                  .sort((a, b) => (a[1].name || '').localeCompare(b[1].name || ''))
+                  .forEach(([k, v]) => {
+                     const opt = document.createElement('option');
+                     opt.value = k;
+                     opt.textContent = (v.name || v.email || 'Guru') + (v.nip ? ' — ' + v.nip : '');
+                     selGuru.appendChild(opt);
+                  });
+            });
+
+         // Realtime listener mapel
+         db.ref('mapel').on('value', (snap) => {
+            allMapel = snap.val() || {};
+            renderStats();
+            filterMapel();
+         });
+
+         function renderStats() {
+            const list = Object.values(allMapel);
+            document.getElementById('statTotal').textContent = list.length;
+            document.getElementById('statAktif').textContent = list.filter((m) => m.guruKey).length;
+            document.getElementById('statDenganToleransi').textContent = list.filter((m) => m.toleransi > 0).length;
+         }
+
+         function filterMapel() {
+            const q = document.getElementById('searchMapel').value.toLowerCase();
+            filteredMapel = Object.entries(allMapel).filter(([k, v]) => {
+               if (!q) return true;
+               const guruNama = (allGuru[v.guruKey]?.name || v.guruNama || '').toLowerCase();
+               return (v.nama || '').toLowerCase().includes(q) || (v.kode || '').toLowerCase().includes(q) || guruNama.includes(q);
+            });
+            renderTable();
+         }
+
+         function renderTable() {
+            const tbody = document.getElementById('tableBodyMapel');
+            if (filteredMapel.length === 0) {
+               tbody.innerHTML = `<tr><td colspan="7">
+                  <div class="empty-state"><div class="empty-icon">📚</div>
+                  <h3>Belum ada mata pelajaran</h3>
+                  <p>Klik tombol Tambah Mapel untuk mulai.</p></div>
+               </td></tr>`;
+               return;
+            }
+            tbody.innerHTML = filteredMapel
+               .map(([k, m], i) => {
+                  const guruNama = allGuru[m.guruKey]?.name || allGuru[m.guruKey]?.email || m.guruNama || '-';
+                  const guruBadge = m.guruKey ? `<span style="font-size:13px;color:var(--white)">${guruNama}</span>` : `<span style="font-size:12px;color:var(--grey-2)">Belum ada guru</span>`;
+                  return `
+               <tr>
+                  <td style="color:var(--grey-2)">${i + 1}</td>
+                  <td><span class="badge badge-blue">${m.kode || '-'}</span></td>
+                  <td class="fw-600">${m.nama || '-'}</td>
+                  <td>${m.jamMulai || '<span style="color:var(--grey-2)">—</span>'}</td>
+                  <td>${m.toleransi > 0 ? `<span class="badge badge-izin">⏱ ${m.toleransi} mnt</span>` : '<span style="color:var(--grey-2)">—</span>'}</td>
+                  <td>${guruBadge}</td>
+                  <td>
+                     <div class="flex gap-2">
+                        <button class="btn btn-secondary btn-sm" onclick="openEdit('${k}')">✏️</button>
+                        <button class="btn btn-danger btn-sm" onclick="openHapus('${k}')">🗑️</button>
+                     </div>
+                  </td>
+               </tr>`;
+               })
+               .join('');
+         }
+
+         // ── Modal Tambah ──
+         function openModal() {
+            editKey = null;
+            document.getElementById('modalMapelTitle').textContent = '➕ Tambah Mata Pelajaran';
+            document.getElementById('inputNamaMapel').value = '';
+            document.getElementById('inputKodeMapel').value = '';
+            document.getElementById('inputJamMulai').value = '';
+            document.getElementById('inputToleransi').value = '';
+            document.getElementById('inputGuruMapel').value = '';
+            document.getElementById('inputKetMapel').value = '';
+            document.getElementById('errorMapel').style.display = 'none';
+            document.getElementById('modalMapel').classList.add('show');
+            setTimeout(() => document.getElementById('inputNamaMapel').focus(), 100);
+         }
+
+         // ── Modal Edit ──
+         function openEdit(key) {
+            editKey = key;
+            const m = allMapel[key];
+            document.getElementById('modalMapelTitle').textContent = '✏️ Edit Mata Pelajaran';
+            document.getElementById('inputNamaMapel').value = m.nama || '';
+            document.getElementById('inputKodeMapel').value = m.kode || '';
+            document.getElementById('inputJamMulai').value = m.jamMulai || '';
+            document.getElementById('inputToleransi').value = m.toleransi || '';
+            document.getElementById('inputGuruMapel').value = m.guruKey || '';
+            document.getElementById('inputKetMapel').value = m.keterangan || '';
+            document.getElementById('errorMapel').style.display = 'none';
+            document.getElementById('modalMapel').classList.add('show');
+         }
+
+         function closeModal() {
+            document.getElementById('modalMapel').classList.remove('show');
+            editKey = null;
+         }
+
+         async function saveMapel() {
+            const nama = document.getElementById('inputNamaMapel').value.trim();
+            const kode = document.getElementById('inputKodeMapel').value.trim().toUpperCase();
+            const jamMulai = document.getElementById('inputJamMulai').value;
+            const toleransi = parseInt(document.getElementById('inputToleransi').value) || 0;
+            const guruKey = document.getElementById('inputGuruMapel').value;
+            const keterangan = document.getElementById('inputKetMapel').value.trim();
+            const errEl = document.getElementById('errorMapel');
+
+            if (!nama || !kode || !jamMulai) {
+               errEl.textContent = 'Nama, kode, dan jam mulai wajib diisi.';
+               errEl.style.display = 'block';
+               return;
+            }
+
+            const btn = document.getElementById('btnSaveMapel');
+            btn.disabled = true;
+            btn.textContent = 'Menyimpan...';
+
+            const data = {
+               nama,
+               kode,
+               jamMulai,
+               toleransi,
+               guruKey: guruKey || '',
+               guruNama: guruKey ? allGuru[guruKey]?.name || '' : '',
+               keterangan,
+               aktif: true,
+               updatedAt: Date.now(),
+            };
+
+            try {
+               if (editKey) {
+                  await db.ref(`mapel/${editKey}`).update(data);
+                  showToast('Mata pelajaran berhasil diperbarui!', 'success');
+               } else {
+                  data.createdAt = Date.now();
+                  await db.ref('mapel').push(data);
+                  showToast('Mata pelajaran berhasil ditambahkan!', 'success');
+               }
+               closeModal();
+            } catch (e) {
+               errEl.textContent = 'Gagal menyimpan: ' + e.message;
+               errEl.style.display = 'block';
+            } finally {
+               btn.disabled = false;
+               btn.textContent = '💾 Simpan';
+            }
+         }
+
+         // ── Modal Hapus ──
+         function openHapus(key) {
+            hapusKey = key;
+            document.getElementById('hapusNama').textContent = allMapel[key]?.nama || '';
+            document.getElementById('modalHapus').classList.add('show');
+         }
+
+         function closeHapus() {
+            document.getElementById('modalHapus').classList.remove('show');
+            hapusKey = null;
+         }
+
+         async function doHapus() {
+            if (!hapusKey) return;
+            const btn = document.getElementById('btnHapus');
+            btn.disabled = true;
+            btn.textContent = 'Menghapus...';
+            try {
+               await db.ref(`mapel/${hapusKey}`).remove();
+               showToast('Mata pelajaran dihapus.', 'info');
+               closeHapus();
+            } catch (e) {
+               showToast('Gagal hapus: ' + e.message, 'error');
+            } finally {
+               btn.disabled = false;
+               btn.textContent = '🗑️ Hapus';
+            }
+         }
+      </script>
+   </body>
+</html>
